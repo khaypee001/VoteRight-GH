@@ -482,6 +482,7 @@ export default function App() {
             setShowOrganizerPortal(false);
             setUser(null);
             localStorage.removeItem('voterightgh_user');
+            setActiveTab('home');
             if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
           }}
         />
@@ -837,4 +838,3 @@ export default function App() {
     </div>
   );
 }
-
