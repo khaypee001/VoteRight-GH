@@ -141,6 +141,11 @@ export interface OrganizerProfile {
   password?: string;
   logoUrl?: string;
   dateApplied?: string;
+  paystackSubaccountCode?: string;
+  paystackSubaccountStatus?: 'active' | 'pending' | 'unlinked';
+  subaccountSettlementBank?: string;
+  subaccountAccountNumber?: string;
+  subaccountPercentageCharge?: number;
 }
 
 export interface SiteSettings {
@@ -168,6 +173,13 @@ export interface PayoutRequest {
   bankOrNetworkName?: string;
   status: 'PENDING' | 'APPROVED' | 'DISBURSED' | 'REJECTED' | 'Paid';
   createdAt: string;
+  subaccountCode?: string;
+  transferCode?: string;
+  transferRecipientCode?: string;
+  transferReference?: string;
+  payoutType?: 'paystack_transfer' | 'manual';
+  disbursedAt?: string;
+  txHash?: string;
 }
 
 export interface CandidateRegistration {

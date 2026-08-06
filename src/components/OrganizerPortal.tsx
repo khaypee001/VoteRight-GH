@@ -18,6 +18,13 @@ import {
   fetchPayoutRequests,
 } from '../lib/organizerHooks';
 import {
+  getPaystackSubaccountDetails,
+  updatePaystackSubaccount,
+  createPaystackTransferRecipient,
+  initiatePaystackTransfer,
+  PaystackSubaccount
+} from '../lib/paystackTransferService';
+import {
   BarChart3,
   DollarSign,
   Users,
@@ -65,7 +72,10 @@ import {
   Edit2,
   UserPlus,
   Search,
-  Filter
+  Filter,
+  RefreshCw,
+  Zap,
+  ChevronRight
 } from 'lucide-react';
 
 export interface OrganizerProfileProps {
@@ -234,6 +244,49 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     .reduce((sum, p) => sum + p.amount, 0);
 
   const availableBalance = Math.max(0, netEarnings - totalPaidOut - totalPendingPayout);
+
+  // Paystack Subaccount & On-Demand Transfer State
+  const [subaccount, setSubaccount] = useState<PaystackSubaccount>(() => 
+    getPaystackSubaccountDetails(profile.id, profile.fullName, profile.phone)
+  );
+  const [showSubaccountEdit, setShowSubaccountEdit] = useState(false);
+  const [editSettlementBank, setEditSettlementBank] = useState(subaccount.settlementBank);
+  const [editAccountNumber, setEditAccountNumber] = useState(subaccount.accountNumber);
+  const [editAccountName, setEditAccountName] = useState(subaccount.accountName);
+
+  // Transfer API Execution Progress Modal State
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [activeTransferStep, setActiveTransferStep] = useState(0);
+  const [transferStepLabel, setTransferStepLabel] = useState('');
+  const [completedPayoutRecord, setCompletedPayoutRecord] = useState<PayoutRequest | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const handleCopyCode = (val: string, label: string) => {
+    navigator.clipboard.writeText(val);
+    setCopiedText(val);
+    showToast(`Copied ${label} (${val})!`);
+    setTimeout(() => setCopiedText(null), 2500);
+  };
+
+  const handleSelectPreset = (percentage: number) => {
+    if (availableBalance <= 0) return;
+    const calculated = (availableBalance * (percentage / 100)).toFixed(2);
+    setPayoutAmount(calculated);
+  };
+
+  const handleSaveSubaccountConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = updatePaystackSubaccount(profile.id, {
+      settlementBank: editSettlementBank,
+      accountNumber: editAccountNumber,
+      accountName: editAccountName,
+    });
+    setSubaccount(updated);
+    setShowSubaccountEdit(false);
+    setAccountNumber(editAccountNumber);
+    setAccountName(editAccountName);
+    showToast('✅ Paystack Subaccount settlement account updated!');
+  };
 
   // MoMo & Bank Payout Form State
   const [selectedPayoutEventId, setSelectedPayoutEventId] = useState<string>(selectedContest?.id || myContests[0]?.id || '');
@@ -633,7 +686,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     showToast(`🎉 Event "${newContestObj.title}" published successfully!`);
   };
 
-  // Payout Request Submission
+  // Payout Request Submission via Paystack Transfer API
   const handlePayoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPayoutError('');
@@ -648,7 +701,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
     if (requestedAmount > availableBalance) {
       setPayoutError(
-        `Requested amount (${formatPrice(requestedAmount, currency)}) exceeds your available balance (${formatPrice(availableBalance, currency)}).`
+        `Requested amount (${formatPrice(requestedAmount, currency)}) exceeds your available subaccount balance (${formatPrice(availableBalance, currency)}).`
       );
       return;
     }
@@ -664,35 +717,53 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     }
 
     setIsSubmittingPayout(true);
+    setIsTransferModalOpen(true);
+    setActiveTransferStep(1);
+    setTransferStepLabel('Validating Paystack Subaccount & Balance...');
+    setCompletedPayoutRecord(null);
 
-    const eventTitle = myContests.find(c => c.id === selectedPayoutEventId)?.title || selectedContest?.title || 'Main Event Campaign';
+    const eventTitle = myContests.find(c => c.id === selectedPayoutEventId)?.title || selectedContest?.title || 'VoteRight Revenue Pool';
 
-    const newRequest: PayoutRequest = {
-      id: `payout-${Date.now()}`,
-      userId: profile.id,
-      organizerName: profile.fullName,
-      contestId: selectedPayoutEventId,
-      eventTitle: eventTitle,
-      amount: requestedAmount,
-      paymentMethod: payoutMethod,
-      momoNetwork: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
-      bankOrNetworkName: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
+    // 1. Create Paystack Transfer Recipient Code
+    const recipientRes = await createPaystackTransferRecipient({
       accountNumber: accountNumber,
-      accountName: accountName,
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-    };
+      bankOrNetwork: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
+      accountName: accountName
+    });
 
-    const updatedRequests = [newRequest, ...payoutRequestsHistory];
-    setPayoutRequestsHistory(updatedRequests);
-    localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updatedRequests));
+    // 2. Initiate Paystack Automated Transfer
+    const transferRes = await initiatePaystackTransfer({
+      subaccountCode: subaccount.subaccountCode,
+      recipientCode: recipientRes.recipientCode,
+      amountGHS: requestedAmount,
+      reason: `On-Demand Payout - ${eventTitle}`,
+      organizerId: profile.id,
+      eventTitle: eventTitle,
+      accountName: accountName,
+      accountNumber: accountNumber,
+      momoNetwork: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
+      onProgress: (step, label) => {
+        setActiveTransferStep(step);
+        setTransferStepLabel(label);
+      }
+    });
 
     setIsSubmittingPayout(false);
-    setPayoutSuccess(
-      `Payout request of GHS ${requestedAmount.toFixed(2)} (${payoutMethod} - ${payoutMethod === 'Mobile Money' ? momoNetwork : bankName}) submitted! Pushed to Admin Dashboard for approval.`
-    );
-    setPayoutAmount('');
-    showToast(`⚡ Withdrawal request of GHS ${requestedAmount.toFixed(2)} sent to Admin!`);
+
+    if (transferRes.success && transferRes.payoutRequest) {
+      const updatedRequests = [transferRes.payoutRequest, ...payoutRequestsHistory];
+      setPayoutRequestsHistory(updatedRequests);
+      localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updatedRequests));
+
+      setCompletedPayoutRecord(transferRes.payoutRequest);
+      setPayoutSuccess(
+        `⚡ On-Demand Payout of GHS ${requestedAmount.toFixed(2)} disbursed to ${accountName} (${accountNumber}) via Paystack Transfer API!`
+      );
+      setPayoutAmount('');
+      showToast(`🎉 GHS ${requestedAmount.toFixed(2)} transferred to your ${payoutMethod === 'Mobile Money' ? momoNetwork : bankName} wallet!`);
+    } else {
+      setPayoutError(transferRes.error || 'Paystack Transfer API failed. Please try again.');
+    }
   };
 
   // Export Leaderboard / Voter Logs to CSV
@@ -2087,182 +2158,555 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
               </div>
             )}
 
-            {/* TAB 6: PAYOUT REQUEST MODULE & ADMIN LINKAGE */}
+            {/* TAB 6: PAYOUT REQUEST MODULE & PAYSTACK SUBACCOUNT WORKFLOW */}
             {activeTab === 'payouts' && (
               <div className="space-y-6">
-                <div>
-                  <h4 className="text-lg font-black text-white">Payout Request Module</h4>
-                  <p className="text-xs text-slate-400">Direct mobile money and bank transfers pushed to Secret Admin Dashboard.</p>
-                </div>
-
-                {/* Balance Summary Header */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                    <span className="text-slate-400 text-[11px] font-bold block">Gross Revenue</span>
-                    <div className="text-xl font-black text-white mt-1">{formatPrice(grossEarnings, currency)}</div>
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-emerald-400" />
+                        <span>Paystack Subaccount Active</span>
+                      </span>
+                      <span className="text-slate-500 text-xs font-mono">{subaccount.subaccountCode}</span>
+                    </div>
+                    <h4 className="text-xl font-black text-white tracking-tight mt-1">
+                      Organizer Revenue & Paystack On-Demand Payouts
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Funds collected from votes flow directly into your dedicated Paystack Subaccount and disburse instantly to your mobile money or bank account on request.
+                    </p>
                   </div>
 
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                    <span className="text-slate-400 text-[11px] font-bold block">15% Platform Fee</span>
-                    <div className="text-xl font-black text-rose-400 mt-1">-{formatPrice(platformFee, currency)}</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setShowSubaccountEdit(!showSubaccountEdit)}
+                      className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{showSubaccountEdit ? 'Close Subaccount Config' : 'Edit Settlement Bank'}</span>
+                    </button>
                   </div>
+                </motion.div>
 
-                  <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 bg-emerald-950/20">
-                    <span className="text-emerald-400 text-[11px] font-bold block">Available Balance</span>
-                    <div className="text-2xl font-black text-emerald-300 mt-1">{formatPrice(availableBalance, currency)}</div>
-                  </div>
-                </div>
-
-                {/* Payout Request Form */}
-                <form onSubmit={handlePayoutSubmit} className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-2 flex items-center gap-2">
-                    <Smartphone className="w-4 h-4 text-emerald-400" />
-                    <span>Submit Withdrawal Request</span>
-                  </h5>
-
-                  {payoutError && (
-                    <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                      <span>{payoutError}</span>
-                    </div>
-                  )}
-
-                  {payoutSuccess && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                      <span>{payoutSuccess}</span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Selected Event */}
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue</label>
-                      <select
-                        value={selectedPayoutEventId}
-                        onChange={(e) => setSelectedPayoutEventId(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {myContests.map(c => (
-                          <option key={c.id} value={c.id}>{c.title}</option>
-                        ))}
-                      </select>
+                {/* Inline Paystack Subaccount Settlement Editor */}
+                {showSubaccountEdit && (
+                  <motion.form 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    onSubmit={handleSaveSubaccountConfig}
+                    className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-xl"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-amber-400" />
+                        <h5 className="font-extrabold text-sm text-white">Configure Paystack Subaccount Settlement Account</h5>
+                      </div>
+                      <span className="text-[11px] text-amber-400 font-mono font-bold">15% Platform Split Active</span>
                     </div>
 
-                    {/* Payment Method */}
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Payment Method</label>
-                      <select
-                        value={payoutMethod}
-                        onChange={(e) => setPayoutMethod(e.target.value as any)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
-                      >
-                        <option value="Mobile Money">Mobile Money (MTN / Telecel / AT)</option>
-                        <option value="Bank Transfer">Bank Wire Transfer</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Provider / Bank Name */}
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">
-                        {payoutMethod === 'Mobile Money' ? 'MoMo Network Provider' : 'Bank Name'}
-                      </label>
-                      {payoutMethod === 'Mobile Money' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-bold">Settlement Bank / MoMo Network</label>
                         <select
-                          value={momoNetwork}
-                          onChange={(e) => setMomoNetwork(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          value={editSettlementBank}
+                          onChange={(e) => setEditSettlementBank(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-amber-400"
                         >
-                          <option value="MTN MoMo">MTN MoMo</option>
-                          <option value="Telecel Cash">Telecel Cash</option>
-                          <option value="AT Money">AT Money (AirtelTigo)</option>
-                        </select>
-                      ) : (
-                        <select
-                          value={bankName}
-                          onChange={(e) => setBankName(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                        >
+                          <option value="MTN Mobile Money (Ghana)">MTN Mobile Money (Ghana)</option>
+                          <option value="Telecel Cash (Ghana)">Telecel Cash (Ghana)</option>
+                          <option value="AT Money (AirtelTigo)">AT Money (AirtelTigo)</option>
                           <option value="Ecobank Ghana">Ecobank Ghana</option>
                           <option value="GCB Bank">GCB Bank</option>
-                          <option value="Stanbic Bank">Stanbic Bank</option>
-                          <option value="Fidelity Bank">Fidelity Bank</option>
-                          <option value="Zenith Bank">Zenith Bank</option>
-                          <option value="CalBank">CalBank</option>
-                          <option value="CBG">Consolidated Bank Ghana (CBG)</option>
+                          <option value="Stanbic Bank Ghana">Stanbic Bank Ghana</option>
+                          <option value="Fidelity Bank Ghana">Fidelity Bank Ghana</option>
                         </select>
-                      )}
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-bold">Account / MoMo Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAccountNumber}
+                          onChange={(e) => setEditAccountNumber(e.target.value)}
+                          placeholder="024XXXXXXX"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-400 font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1 font-bold">Registered Account Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={editAccountName}
+                          onChange={(e) => setEditAccountName(e.target.value)}
+                          placeholder="Name on MoMo account"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
                     </div>
 
-                    {/* Account / MoMo Number */}
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">
-                        {payoutMethod === 'Mobile Money' ? 'MoMo Phone Number' : 'Bank Account Number'}
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={accountNumber}
-                        onChange={(e) => setAccountNumber(e.target.value)}
-                        placeholder="024XXXXXXX or Account No."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
-                      />
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSubaccountEdit(false)}
+                        className="bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold px-4 py-2 rounded-xl"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-5 py-2 rounded-xl transition-all shadow"
+                      >
+                        Save Subaccount Settings
+                      </button>
                     </div>
+                  </motion.form>
+                )}
 
-                    {/* Account Name */}
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Account Holder Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={accountName}
-                        onChange={(e) => setAccountName(e.target.value)}
-                        placeholder="Account name as registered"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Requested Withdrawal Amount (GHS)</label>
-                    <input
-                      type="number"
-                      required
-                      step="10"
-                      max={availableBalance}
-                      value={payoutAmount}
-                      onChange={(e) => setPayoutAmount(e.target.value)}
-                      placeholder={`Max: GHS ${availableBalance.toFixed(2)}`}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmittingPayout || availableBalance <= 0}
-                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-8 py-3 rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                {/* Subaccount Balance & Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <motion.div 
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4 }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 relative overflow-hidden"
                   >
-                    {isSubmittingPayout ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Submitting to Admin...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>Submit Payout Request to Admin</span>
-                      </>
-                    )}
-                  </button>
-                </form>
+                    <span className="text-slate-400 text-[11px] font-bold block">Gross Revenue Generated</span>
+                    <div className="text-2xl font-black text-white mt-1">{formatPrice(grossEarnings, currency)}</div>
+                    <span className="text-[10px] text-slate-500 block mt-1">From all active voting contests</span>
+                  </motion.div>
 
-                {/* Payout History Table */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden space-y-3 p-4">
-                  <h5 className="font-extrabold text-white text-xs uppercase tracking-wider">
-                    Payout History & Status Updates
-                  </h5>
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.05 }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 relative overflow-hidden"
+                  >
+                    <span className="text-slate-400 text-[11px] font-bold block">Platform Fee (15%)</span>
+                    <div className="text-2xl font-black text-rose-400 mt-1">-{formatPrice(platformFee, currency)}</div>
+                    <span className="text-[10px] text-slate-500 block mt-1">Retained automatically by Paystack</span>
+                  </motion.div>
+
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 bg-emerald-950/20 relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 text-[11px] font-extrabold block">Paystack Subaccount Balance</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    </div>
+                    <div className="text-3xl font-black text-emerald-300 mt-1">{formatPrice(availableBalance, currency)}</div>
+                    <span className="text-[10px] text-emerald-400/80 block mt-1">Available for On-Demand Payout</span>
+                  </motion.div>
+
+                  <motion.div 
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.15 }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 relative overflow-hidden"
+                  >
+                    <span className="text-slate-400 text-[11px] font-bold block">Total Disbursed To Date</span>
+                    <div className="text-2xl font-black text-amber-400 mt-1">{formatPrice(totalPaidOut, currency)}</div>
+                    <span className="text-[10px] text-slate-500 block mt-1">Disbursed via Paystack Transfer API</span>
+                  </motion.div>
+                </div>
+
+                {/* Main 2-Column Split: On-Demand Payout Request Form & Paystack Info */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: On-Demand Payout Form (Slide In Left) */}
+                  <motion.div 
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                    className="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl"
+                  >
+                    <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold">
+                          <Zap className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="font-extrabold text-white text-sm">Request On-Demand Payout</h5>
+                          <p className="text-[11px] text-slate-400">Initiate automated transfer from subaccount to your MoMo wallet</p>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg">
+                        API v2.0
+                      </span>
+                    </div>
+
+                    {payoutError && (
+                      <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                        <span>{payoutError}</span>
+                      </div>
+                    )}
+
+                    {payoutSuccess && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                        <span>{payoutSuccess}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handlePayoutSubmit} className="space-y-4">
+                      {/* Select Event */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue Subaccount</label>
+                        <select
+                          value={selectedPayoutEventId}
+                          onChange={(e) => setSelectedPayoutEventId(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
+                        >
+                          {myContests.map(c => (
+                            <option key={c.id} value={c.id}>{c.title}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Payment Method */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-300 block mb-1">Payout Gateway Method</label>
+                          <select
+                            value={payoutMethod}
+                            onChange={(e) => setPayoutMethod(e.target.value as any)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                          >
+                            <option value="Mobile Money">Mobile Money Instant Transfer</option>
+                            <option value="Bank Transfer">Direct Bank Wire</option>
+                          </select>
+                        </div>
+
+                        {/* Network / Provider */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-300 block mb-1">
+                            {payoutMethod === 'Mobile Money' ? 'MoMo Network Provider' : 'Bank Name'}
+                          </label>
+                          {payoutMethod === 'Mobile Money' ? (
+                            <select
+                              value={momoNetwork}
+                              onChange={(e) => setMomoNetwork(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                            >
+                              <option value="MTN MoMo">MTN Mobile Money</option>
+                              <option value="Telecel Cash">Telecel Cash (Vodafone)</option>
+                              <option value="AT Money">AT Money (AirtelTigo)</option>
+                            </select>
+                          ) : (
+                            <select
+                              value={bankName}
+                              onChange={(e) => setBankName(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                            >
+                              <option value="Ecobank Ghana">Ecobank Ghana</option>
+                              <option value="GCB Bank">GCB Bank</option>
+                              <option value="Stanbic Bank">Stanbic Bank</option>
+                              <option value="Fidelity Bank">Fidelity Bank</option>
+                              <option value="Zenith Bank">Zenith Bank</option>
+                              <option value="CalBank">CalBank</option>
+                            </select>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* MoMo / Account Number */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-300 block mb-1">
+                            {payoutMethod === 'Mobile Money' ? 'MoMo Wallet Number' : 'Account Number'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={accountNumber}
+                            onChange={(e) => setAccountNumber(e.target.value)}
+                            placeholder="024XXXXXXX"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 font-bold"
+                          />
+                        </div>
+
+                        {/* Account Holder Name */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-300 block mb-1">Account Holder Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={accountName}
+                            onChange={(e) => setAccountName(e.target.value)}
+                            placeholder="Exact account name"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Withdrawal Amount with Quick Percentage Presets */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-300">
+                            Requested Payout Amount (GHS)
+                          </label>
+                          <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                            Max Available: GHS {availableBalance.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="number"
+                            required
+                            step="0.01"
+                            max={availableBalance}
+                            value={payoutAmount}
+                            onChange={(e) => setPayoutAmount(e.target.value)}
+                            placeholder={`Enter GHS amount (e.g. ${availableBalance > 0 ? availableBalance.toFixed(2) : '100.00'})`}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-3.5 pr-20 py-2.5 text-sm text-amber-400 font-mono font-black focus:outline-none focus:border-emerald-500"
+                          />
+                          <div className="absolute right-3 top-2.5 text-xs font-extrabold text-slate-500 pointer-events-none">
+                            GHS
+                          </div>
+                        </div>
+
+                        {/* Quick Preset Buttons */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Quick Fill:</span>
+                          {[25, 50, 75, 100].map((pct) => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => handleSelectPreset(pct)}
+                              disabled={availableBalance <= 0}
+                              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono font-bold text-amber-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-40"
+                            >
+                              {pct}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="submit"
+                        disabled={isSubmittingPayout || availableBalance <= 0}
+                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs sm:text-sm py-3.5 rounded-xl transition-all shadow-xl shadow-emerald-900/30 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
+                      >
+                        {isSubmittingPayout ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            <span>Processing Paystack Transfer API...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 text-amber-300" />
+                            <span>Request Payout (Paystack Transfer API)</span>
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </>
+                        )}
+                      </motion.button>
+                    </form>
+                  </motion.div>
+
+                  {/* Right Column: Subaccount Architecture Details (Slide In Right) */}
+                  <motion.div 
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                    className="lg:col-span-5 space-y-4"
+                  >
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-amber-400" />
+                          <h5 className="font-extrabold text-white text-xs uppercase tracking-wider">
+                            Subaccount Details
+                          </h5>
+                        </div>
+                        <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                          Active
+                        </span>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-slate-400 font-bold">Subaccount Code</span>
+                          <button
+                            onClick={() => handleCopyCode(subaccount.subaccountCode, 'Subaccount Code')}
+                            className="font-mono text-amber-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{subaccount.subaccountCode}</span>
+                            <Copy className="w-3 h-3 text-slate-500" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-slate-400 font-bold">Primary Settlement Network</span>
+                          <span className="font-bold text-white">{subaccount.settlementBank}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-slate-400 font-bold">Target Wallet / MoMo</span>
+                          <span className="font-mono text-emerald-400 font-bold">{subaccount.accountNumber}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-slate-400 font-bold">Platform Split Rule</span>
+                          <span className="font-bold text-white">85% Organizer / 15% Platform</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* How On-Demand Subaccount Works */}
+                    <div className="bg-gradient-to-br from-blue-950/40 via-slate-950 to-indigo-950/40 border border-blue-500/30 rounded-2xl p-5 space-y-3 shadow-xl">
+                      <div className="flex items-center gap-2 text-blue-400 font-extrabold text-xs">
+                        <ShieldCheck className="w-4 h-4 text-blue-400" />
+                        <span>Paystack Subaccount Workflow</span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        Every vote purchase made via Paystack instantly routes 85% of net ticket funds directly into your dedicated subaccount. Money remains safe until you click <strong>"Request Payout"</strong>.
+                      </p>
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>No automatic daily sweeping required</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>Direct MoMo & Bank Transfer API integration</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>Instant transaction reference logging</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Live Transfer Execution Modal */}
+                {isTransferModalOpen && (
+                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative"
+                    >
+                      <div className="text-center space-y-2">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg">
+                          {completedPayoutRecord ? (
+                            <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                          ) : (
+                            <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
+                          )}
+                        </div>
+
+                        <h4 className="text-lg font-black text-white">
+                          {completedPayoutRecord ? 'Payout Transferred Successfully!' : 'Executing Paystack Transfer API'}
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          {completedPayoutRecord 
+                            ? `GHS ${completedPayoutRecord.amount.toFixed(2)} disbursed to ${completedPayoutRecord.accountName}` 
+                            : transferStepLabel}
+                        </p>
+                      </div>
+
+                      {/* 5-Step Visual Pipeline */}
+                      <div className="space-y-2.5 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 text-xs">
+                        {[
+                          "1. Subaccount & Balance Audit",
+                          "2. Generating Recipient Code",
+                          "3. Invoking Paystack Transfer API",
+                          "4. Disbursing to MoMo / Bank Wallet",
+                          "5. Finalizing Cryptographic Ledger"
+                        ].map((stepText, idx) => {
+                          const stepNum = idx + 1;
+                          const isDone = activeTransferStep > stepNum || completedPayoutRecord !== null;
+                          const isCurrent = activeTransferStep === stepNum && !completedPayoutRecord;
+
+                          return (
+                            <div key={idx} className="flex items-center justify-between">
+                              <span className={`font-medium ${isDone ? 'text-emerald-400 font-bold' : isCurrent ? 'text-amber-300 font-bold' : 'text-slate-500'}`}>
+                                {stepText}
+                              </span>
+                              <div>
+                                {isDone && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                                {isCurrent && <Loader2 className="w-4 h-4 text-amber-300 animate-spin" />}
+                                {!isDone && !isCurrent && <span className="text-[10px] text-slate-600 font-mono">Pending</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Completed Details Box */}
+                      {completedPayoutRecord && (
+                        <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-4 space-y-2 text-xs">
+                          <div className="flex justify-between items-center text-emerald-300">
+                            <span className="font-bold">Transfer Code:</span>
+                            <span className="font-mono font-bold">{completedPayoutRecord.transferCode}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-emerald-300">
+                            <span className="font-bold">Tx Hash:</span>
+                            <span className="font-mono text-[10px] text-slate-300 truncate max-w-[180px]">
+                              {completedPayoutRecord.txHash}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-emerald-300">
+                            <span className="font-bold">Status:</span>
+                            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                              Disbursed
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {completedPayoutRecord && (
+                        <button
+                          onClick={() => {
+                            setIsTransferModalOpen(false);
+                            setCompletedPayoutRecord(null);
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-3 rounded-xl transition-all shadow cursor-pointer"
+                        >
+                          Done & Close
+                        </button>
+                      )}
+                    </motion.div>
+                  </div>
+                )}
+
+                {/* Payout History Ledger Table */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden space-y-3 p-5 shadow-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h5 className="font-extrabold text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-amber-400" />
+                      <span>Paystack Transfer & Payout History</span>
+                    </h5>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {payoutRequestsHistory.length} Total Records
+                    </span>
+                  </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs text-slate-300">
@@ -2271,13 +2715,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                           <th className="py-2.5 px-3">Date</th>
                           <th className="py-2.5 px-3">Method / Network</th>
                           <th className="py-2.5 px-3">Account Details</th>
+                          <th className="py-2.5 px-3">Transfer Code</th>
                           <th className="py-2.5 px-3">Amount</th>
                           <th className="py-2.5 px-3 text-right">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800">
                         {payoutRequestsHistory.map((p) => (
-                          <tr key={p.id}>
+                          <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
                             <td className="py-2.5 px-3 font-mono text-[11px]">
                               {new Date(p.createdAt).toLocaleDateString()}
                             </td>
@@ -2286,6 +2731,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                             </td>
                             <td className="py-2.5 px-3 text-slate-400 font-mono">
                               {p.accountNumber} ({p.accountName})
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-slate-400 text-[11px]">
+                              {p.transferCode || 'TRF_VRG_INIT'}
                             </td>
                             <td className="py-2.5 px-3 font-bold text-amber-400 font-mono">
                               GHS {p.amount.toFixed(2)}
@@ -2300,7 +2748,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                 }`}
                               >
-                                {p.status}
+                                {p.status === 'APPROVED' ? 'DISBURSED' : p.status}
                               </span>
                             </td>
                           </tr>
@@ -2308,7 +2756,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       </tbody>
                     </table>
                   </div>
-                </div>
+                </motion.div>
               </div>
             )}
 
