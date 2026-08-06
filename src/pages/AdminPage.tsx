@@ -242,6 +242,25 @@ export default function AdminPage({
     showToast('⚡ Event voting status updated!');
   };
 
+  // NEW: Handle Event Deletion
+  const handleDeleteEvent = (eventId: string) => {
+    if (window.confirm("Are you sure you want to delete this event? It will be permanently removed from the homepage and admin lists.")) {
+      const updatedEvents = events.filter(ev => ev.id !== eventId);
+      setEvents(updatedEvents);
+
+      // Update propsContests / localStorage so it vanishes from homepage as well
+      if (propsContests && onUpdateContests) {
+        const updatedContests = propsContests.filter(c => c.id !== eventId);
+        onUpdateContests(updatedContests);
+      }
+
+      // Also persist fallback/direct updates in localStorage keys used across the app
+      localStorage.setItem('voterightgh_contests', JSON.stringify(updatedEvents));
+
+      showToast('🗑️ Event successfully deleted and removed from homepage.');
+    }
+  };
+
   // Handle Manual Add Submission
   const handleManualAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,7 +277,6 @@ export default function AdminPage({
       return;
     }
 
-    // Call prop handler if available
     if (propsHandleManualCreate) {
       const res = propsHandleManualCreate({
         fullName: manualFullName,
@@ -278,7 +296,6 @@ export default function AdminPage({
 
       showToast(`✅ ${res.message}`);
     } else {
-      // Local fallback provision logic (upsert + elevate role to organizer)
       const existingOrgIndex = localOrganizers.findIndex(o => o.email.toLowerCase() === cleanEmail);
       let newOrgProfile: OrganizerProfile;
       let updatedOrganizers = [...localOrganizers];
@@ -317,7 +334,6 @@ export default function AdminPage({
 
       updateOrganizersList(updatedOrganizers);
 
-      // Provision / elevate in voterightgh_users_auth
       let usersAuth: any[] = [];
       try {
         usersAuth = JSON.parse(localStorage.getItem('voterightgh_users_auth') || '[]');
@@ -336,7 +352,7 @@ export default function AdminPage({
         fullName: newOrgProfile.fullName,
         phone: newOrgProfile.phone,
         agency: newOrgProfile.agency,
-        role: 'organizer', // Dynamically elevate to organizer
+        role: 'organizer',
         status: newOrgProfile.status,
         isVerified: newOrgProfile.isVerified,
       };
@@ -356,7 +372,6 @@ export default function AdminPage({
       showToast(`✅ Organizer "${newOrgProfile.fullName}" provisioned successfully with active login credentials!`);
     }
 
-    // Reset Form & Close
     setManualFullName('');
     setManualEmail('');
     setManualPhone('');
@@ -368,7 +383,6 @@ export default function AdminPage({
     setShowManualAddModal(false);
   };
 
-  // Organizer Status Management
   const handleOrganizerStatusChange = (id: string, newStatus: 'approved' | 'rejected') => {
     const updated = localOrganizers.map(org => {
       if (org.id === id) {
@@ -425,7 +439,6 @@ export default function AdminPage({
     }
   };
 
-  // Filtered Organizers for Table
   const filteredOrganizers = localOrganizers.filter(org => {
     const query = searchQuery.toLowerCase();
     const name = org.fullName || org.agency || '';
@@ -673,7 +686,7 @@ export default function AdminPage({
             </motion.div>
           )}
 
-          {/* TAB 2: EVENTS & VOTING STATUS TOGGLE */}
+          {/* TAB 2: EVENTS & VOTING STATUS TOGGLE + DELETE EVENT */}
           {activeTab === 'events' && (
             <motion.div 
               key="events"
@@ -686,65 +699,83 @@ export default function AdminPage({
               <div className="flex justify-between items-center flex-wrap gap-4 bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
                 <div>
                   <h2 className="text-xl font-black text-white">Active & Archived Events Override</h2>
-                  <p className="text-xs text-slate-400 mt-1">One-click voting status toggle. Flipping status to ENDED immediately displays the "VOTING HAS ENDED" overlay on public cards.</p>
+                  <p className="text-xs text-slate-400 mt-1">One-click voting status toggle or delete events to remove them instantly from the public homepage.</p>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                {events.map((ev, index) => (
-                  <motion.div 
-                    key={ev.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
-                    className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-md hover:border-slate-600 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-black text-white">{ev.title}</h3>
-                      <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
-                        <span>Organizer: <span className="text-slate-200 font-semibold">{ev.organizer}</span></span>
-                        <span>•</span>
-                        <span>Total Votes: <span className="text-amber-400 font-bold">{ev.totalVotes?.toLocaleString() || 0}</span></span>
-                        {ev.endDate && (
-                          <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1 text-slate-300 font-mono">
-                              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                              End: {new Date(ev.endDate).toLocaleString()}
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    </div>
+                {events.length === 0 ? (
+                  <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center text-slate-400 text-xs">
+                    No active events found.
+                  </div>
+                ) : (
+                  events.map((ev, index) => (
+                    <motion.div 
+                      key={ev.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-md hover:border-slate-600 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-black text-white">{ev.title}</h3>
+                        <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                          <span>Organizer: <span className="text-slate-200 font-semibold">{ev.organizer}</span></span>
+                          <span>•</span>
+                          <span>Total Votes: <span className="text-amber-400 font-bold">{ev.totalVotes?.toLocaleString() || 0}</span></span>
+                          {ev.endDate && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 text-slate-300 font-mono">
+                                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                End: {new Date(ev.endDate).toLocaleString()}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      </div>
 
-                    {/* Voting Status Switch */}
-                    <div className="flex items-center gap-4 bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                        Voting Status:
-                      </span>
-                      <button 
-                        onClick={() => toggleVotingStatus(ev.id)}
-                        className="flex items-center gap-2 transition cursor-pointer active:scale-95"
-                      >
-                        {ev.isOngoing ? (
-                          <>
-                            <ToggleRight className="w-8 h-8 text-emerald-400" />
-                            <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg border border-emerald-500/30">
-                              ONGOING 🟢
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="w-8 h-8 text-rose-400" />
-                            <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg border border-rose-500/30">
-                              ENDED 🔴
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* Voting Status Switch */}
+                        <div className="flex items-center gap-3 bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                            Status:
+                          </span>
+                          <button 
+                            onClick={() => toggleVotingStatus(ev.id)}
+                            className="flex items-center gap-2 transition cursor-pointer active:scale-95"
+                          >
+                            {ev.isOngoing ? (
+                              <>
+                                <ToggleRight className="w-8 h-8 text-emerald-400" />
+                                <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg border border-emerald-500/30">
+                                  ONGOING 🟢
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <ToggleLeft className="w-8 h-8 text-rose-400" />
+                                <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg border border-rose-500/30">
+                                  ENDED 🔴
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* NEW: Delete Event Button */}
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="px-4 py-3 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border border-rose-500/30 active:scale-95"
+                          title="Delete Event"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Event</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
               </div>
             </motion.div>
           )}
@@ -1099,3 +1130,4 @@ export default function AdminPage({
     </div>
   );
 }
+
