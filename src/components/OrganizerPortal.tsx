@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+Import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Contest, 
@@ -2364,34 +2364,37 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       </div>
                     )}
 
-                    <form onSubmit={handlePayoutSubmit} className="space-y-4 text-xs">
-                      {/* Select Event Scheme */}
+                    <form onSubmit={handlePayoutSubmit} className="space-y-4">
+                      {/* Event Selector */}
                       <div>
-                        <label className="text-slate-300 block mb-1 font-bold">Source Event / Contest</label>
+                        <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue Pool</label>
                         <select
                           value={selectedPayoutEventId}
                           onChange={(e) => setSelectedPayoutEventId(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
                         >
-                          {myContests.map(c => (
-                            <option key={c.id} value={c.id}>{c.title} ({c.totalVotes} votes)</option>
+                          {myContests.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.title} ({c.totalVotes.toLocaleString()} votes)
+                            </option>
                           ))}
                         </select>
                       </div>
 
-                      {/* Amount & Preset Buttons */}
+                      {/* Amount Input with Quick Percentage Presets */}
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="text-slate-300 font-bold">Payout Amount (GHS)</label>
-                          <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => handleSelectPreset(25)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">25%</button>
-                            <button type="button" onClick={() => handleSelectPreset(50)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">50%</button>
-                            <button type="button" onClick={() => handleSelectPreset(75)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">75%</button>
-                            <button type="button" onClick={() => handleSelectPreset(100)} className="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">MAX</button>
+                          <label className="text-xs font-bold text-slate-300">Payout Amount (GHS)</label>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400">Quick:</span>
+                            <button type="button" onClick={() => handleSelectPreset(25)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-400 px-2 py-0.5 rounded border border-slate-800 font-mono font-bold">25%</button>
+                            <button type="button" onClick={() => handleSelectPreset(50)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-400 px-2 py-0.5 rounded border border-slate-800 font-mono font-bold">50%</button>
+                            <button type="button" onClick={() => handleSelectPreset(100)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-amber-400 px-2 py-0.5 rounded border border-slate-800 font-mono font-bold">MAX</button>
                           </div>
                         </div>
+
                         <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">GHS</span>
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-black text-amber-400">GHS</span>
                           <input
                             type="number"
                             step="0.01"
@@ -2399,111 +2402,116 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                             value={payoutAmount}
                             onChange={(e) => setPayoutAmount(e.target.value)}
                             placeholder="0.00"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-12 pr-4 py-2.5 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-500"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-sm text-amber-300 font-mono font-black focus:outline-none focus:border-emerald-500"
                           />
                         </div>
-                        <span className="text-[10px] text-slate-500 mt-1 block">
-                          Available for transfer: <span className="text-emerald-400 font-semibold">{formatPrice(availableBalance, currency)}</span>
-                        </span>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-[10px] text-slate-400">Max available: <strong className="text-emerald-400 font-mono">GHS {availableBalance.toFixed(2)}</strong></span>
+                          <span className="text-[10px] text-slate-500">Zero transfer fee via Paystack API</span>
+                        </div>
                       </div>
 
-                      {/* Payment Method Selector */}
+                      {/* Payout Method */}
                       <div>
-                        <label className="text-slate-300 block mb-1 font-bold">Payout Destination Method</label>
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">Payout Destination Method</label>
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
                             onClick={() => setPayoutMethod('Mobile Money')}
-                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                               payoutMethod === 'Mobile Money'
-                                ? 'bg-emerald-950/40 border-emerald-500 text-white font-bold'
-                                : 'bg-slate-900 border-slate-800 text-slate-400'
+                                ? 'bg-emerald-950/40 border-emerald-500 text-white shadow'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
                             }`}
                           >
                             <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>Mobile Money (MTN/Telecel/AT)</span>
+                            <div>
+                              <div className="text-xs font-extrabold">Mobile Money</div>
+                              <div className="text-[10px] text-slate-400">MTN, Telecel, AT</div>
+                            </div>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => setPayoutMethod('Bank Transfer')}
-                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                               payoutMethod === 'Bank Transfer'
-                                ? 'bg-emerald-950/40 border-emerald-500 text-white font-bold'
-                                : 'bg-slate-900 border-slate-800 text-slate-400'
+                                ? 'bg-emerald-950/40 border-emerald-500 text-white shadow'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
                             }`}
                           >
                             <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-                            <span>Bank Account (Ghana)</span>
+                            <div>
+                              <div className="text-xs font-extrabold">Bank Account</div>
+                              <div className="text-[10px] text-slate-400">Ecobank, GCB, Stanbic</div>
+                            </div>
                           </button>
                         </div>
                       </div>
 
-                      {/* Network / Bank Name */}
-                      {payoutMethod === 'Mobile Money' ? (
-                        <div>
-                          <label className="text-slate-300 block mb-1 font-bold">Mobile Money Network</label>
-                          <select
-                            value={momoNetwork}
-                            onChange={(e) => setMomoNetwork(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
-                          >
-                            <option value="MTN MoMo">MTN Mobile Money</option>
-                            <option value="Telecel Cash">Telecel Cash</option>
-                            <option value="AT Money">AT Money (AirtelTigo)</option>
-                          </select>
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="text-slate-300 block mb-1 font-bold">Bank Institution</label>
-                          <select
-                            value={bankName}
-                            onChange={(e) => setBankName(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
-                          >
-                            <option value="Ecobank Ghana">Ecobank Ghana</option>
-                            <option value="GCB Bank">GCB Bank</option>
-                            <option value="Stanbic Bank Ghana">Stanbic Bank Ghana</option>
-                            <option value="Fidelity Bank Ghana">Fidelity Bank Ghana</option>
-                            <option value="CalBank">CalBank</option>
-                            <option value="Access Bank Ghana">Access Bank Ghana</option>
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Account Number & Name */}
+                      {/* Network / Bank Selection & Account Number */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {payoutMethod === 'Mobile Money' ? (
+                          <div>
+                            <label className="text-xs font-bold text-slate-300 block mb-1">Mobile Money Network</label>
+                            <select
+                              value={momoNetwork}
+                              onChange={(e) => setMomoNetwork(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
+                            >
+                              <option value="MTN MoMo">MTN MoMo</option>
+                              <option value="Telecel Cash">Telecel Cash</option>
+                              <option value="AT Money">AT Money (AirtelTigo)</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="text-xs font-bold text-slate-300 block mb-1">Select Bank</label>
+                            <select
+                              value={bankName}
+                              onChange={(e) => setBankName(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
+                            >
+                              <option value="Ecobank Ghana">Ecobank Ghana</option>
+                              <option value="GCB Bank">GCB Bank</option>
+                              <option value="Stanbic Bank Ghana">Stanbic Bank Ghana</option>
+                              <option value="Fidelity Bank Ghana">Fidelity Bank Ghana</option>
+                              <option value="Access Bank">Access Bank</option>
+                            </select>
+                          </div>
+                        )}
+
                         <div>
-                          <label className="text-slate-300 block mb-1 font-bold">
-                            {payoutMethod === 'Mobile Money' ? 'Mobile Number' : 'Account Number'}
+                          <label className="text-xs font-bold text-slate-300 block mb-1">
+                            {payoutMethod === 'Mobile Money' ? 'MoMo Number' : 'Account Number'}
                           </label>
                           <input
                             type="text"
                             required
                             value={accountNumber}
                             onChange={(e) => setAccountNumber(e.target.value)}
-                            placeholder={payoutMethod === 'Mobile Money' ? '0241234567' : 'Acc Number'}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                            placeholder="0244000000"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
                           />
                         </div>
+                      </div>
 
-                        <div>
-                          <label className="text-slate-300 block mb-1 font-bold">Registered Account Name</label>
-                          <input
-                            type="text"
-                            required
-                            value={accountName}
-                            onChange={(e) => setAccountName(e.target.value)}
-                            placeholder="Full Legal Name"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1">Registered Account Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={accountName}
+                          onChange={(e) => setAccountName(e.target.value)}
+                          placeholder="Full name registered on account"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
                       </div>
 
                       <button
                         type="submit"
                         disabled={isSubmittingPayout || availableBalance <= 0}
-                        className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs py-3.5 rounded-xl transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                       >
                         {isSubmittingPayout ? (
                           <>
@@ -2512,58 +2520,64 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                           </>
                         ) : (
                           <>
-                            <Zap className="w-4 h-4" />
-                            <span>Initiate Instant Payout ({formatPrice(parseFloat(payoutAmount) || 0, currency)})</span>
+                            <Zap className="w-4 h-4 text-slate-950 fill-current" />
+                            <span>Disburse Instant Payout via Paystack</span>
                           </>
                         )}
                       </button>
                     </form>
                   </motion.div>
 
-                  {/* Right Column: Payout Requests History & Paystack Transfer Details (Slide In Right) */}
+                  {/* Right Column: Payout History & Paystack API Status (Slide In Right) */}
                   <motion.div 
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-                    className="lg:col-span-5 space-y-6"
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                    className="lg:col-span-5 space-y-5"
                   >
                     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                        <h5 className="font-extrabold text-sm text-white">Payout History & Transfers</h5>
-                        <span className="text-[11px] text-slate-400">{payoutRequestsHistory.length} transactions</span>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <h5 className="font-extrabold text-sm text-white">Payout History & Audit Trail</h5>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono font-bold">
+                          {payoutRequestsHistory.length} Transactions
+                        </span>
                       </div>
 
-                      <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                        {payoutRequestsHistory.length === 0 ? (
-                          <div className="text-center py-6 text-xs text-slate-500">
-                            No payout requests recorded yet.
-                          </div>
-                        ) : (
-                          payoutRequestsHistory.map((p) => (
+                      {payoutRequestsHistory.length === 0 ? (
+                        <div className="text-center py-6 text-xs text-slate-500">
+                          No payout requests initiated yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                          {payoutRequestsHistory.map((p) => (
                             <div key={p.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2">
                               <div className="flex items-center justify-between">
-                                <span className="font-mono text-amber-400 text-xs font-bold">{formatPrice(p.amount, currency)}</span>
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                <span className="font-extrabold text-xs text-white">{p.eventTitle}</span>
+                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
                                   p.status === 'APPROVED' || p.status === 'Paid' || p.status === 'DISBURSED'
                                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : p.status === 'REJECTED'
-                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                 }`}>
                                   {p.status}
                                 </span>
                               </div>
 
-                              <div className="text-xs text-white font-medium truncate">{p.eventTitle || 'VoteRight Payout'}</div>
+                              <div className="flex items-center justify-between text-xs font-mono">
+                                <span className="text-amber-400 font-black">GHS {p.amount.toFixed(2)}</span>
+                                <span className="text-slate-400 text-[11px]">{p.paymentMethod} ({p.momoNetwork || 'Bank'})</span>
+                              </div>
 
-                              <div className="text-[11px] text-slate-400 flex items-center justify-between">
-                                <span>{p.paymentMethod} • {p.momoNetwork || 'Bank'}</span>
-                                <span className="font-mono">{new Date(p.createdAt).toLocaleDateString()}</span>
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-800/80 pt-1.5">
+                                <span>Acc: {p.accountNumber}</span>
+                                <span>{new Date(p.createdAt).toLocaleDateString()}</span>
                               </div>
                             </div>
-                          ))
-                        )}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 </div>
@@ -2574,12 +2588,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             {activeTab === 'settings' && (
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-lg font-black text-white">Organizer Profile Settings & Viral Promo Tools</h4>
-                  <p className="text-xs text-slate-400">Manage your agency brand identity, contact phone, and promotional assets.</p>
+                  <h4 className="text-lg font-black text-white">Organizer Settings & Viral Promotion Tools</h4>
+                  <p className="text-xs text-slate-400">Update agency profile and generate promotional flyers & QR codes.</p>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-5">
-                  <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-3">Agency Brand Settings</h5>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
+                  <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-2">Agency Profile Settings</h5>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -2593,19 +2607,18 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Contact Phone Number</label>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">Support Phone Number</label>
                       <input
                         type="text"
                         value={settingsPhone}
                         onChange={(e) => setSettingsPhone(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   <button
-                    type="button"
-                    onClick={() => showToast('✅ Organizer profile settings updated successfully!')}
+                    onClick={() => showToast('✅ Agency profile settings updated!')}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow cursor-pointer"
                   >
                     Save Changes
@@ -2616,6 +2629,160 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
           </div>
         </div>
+
+        {/* BULK UPLOAD MODAL */}
+        {showBulkUploadModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-white">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="font-black text-base text-white">Bulk Nominee Upload (CSV / Paste)</h3>
+                <button onClick={() => setShowBulkUploadModal(false)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+              <p className="text-xs text-slate-400">
+                Paste comma-separated rows in this format: <br />
+                <code className="text-amber-400 font-mono text-[11px]">Name, Category, Code, PhotoUrl, Bio</code>
+              </p>
+              <textarea
+                rows={6}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="Kofi Kingston, Artiste of the Year, GMA-101, https://..., Reggae Star"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowBulkUploadModal(false)} className="bg-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-300">Cancel</button>
+                <button onClick={handleBulkNomineeUpload} className="bg-amber-400 text-slate-950 px-5 py-2 rounded-xl text-xs font-black shadow">Upload Nominees</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT NOMINEE MODAL */}
+        {editingNominee && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <form onSubmit={handleSaveEditNominee} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-white">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="font-black text-base text-white">Edit Nominee: {editingNominee.name}</h3>
+                <button type="button" onClick={() => setEditingNominee(null)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Nominee Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editNomineeName}
+                  onChange={(e) => setEditNomineeName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Category</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNomineeCategory}
+                    onChange={(e) => setEditNomineeCategory(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Voting Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNomineeCode}
+                    onChange={(e) => setEditNomineeCode(e.target.value.toUpperCase())}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-amber-400 font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Photo URL</label>
+                <input
+                  type="url"
+                  required
+                  value={editNomineePhotoUrl}
+                  onChange={(e) => setEditNomineePhotoUrl(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Bio</label>
+                <input
+                  type="text"
+                  value={editNomineeBio}
+                  onChange={(e) => setEditNomineeBio(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setEditingNominee(null)} className="bg-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-300">Cancel</button>
+                <button type="submit" className="bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-extrabold shadow">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* PAYSTACK TRANSFER EXECUTION PROGRESS MODAL */}
+        {isTransferModalOpen && (
+          <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full text-center space-y-5 shadow-2xl text-white">
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/30">
+                {completedPayoutRecord ? <CheckCircle2 className="w-8 h-8 text-emerald-400" /> : <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />}
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-white">
+                  {completedPayoutRecord ? 'Paystack Transfer Successful! ⚡' : 'Executing Paystack Transfer API'}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">{transferStepLabel}</p>
+              </div>
+
+              {completedPayoutRecord ? (
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Transfer Ref:</span>
+                    <span className="text-emerald-400 font-bold">{completedPayoutRecord.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Amount Sent:</span>
+                    <span className="text-amber-400 font-bold">GHS {completedPayoutRecord.amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Recipient:</span>
+                    <span className="text-white">{completedPayoutRecord.accountName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Account:</span>
+                    <span className="text-white">{completedPayoutRecord.accountNumber} ({completedPayoutRecord.momoNetwork})</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div className="bg-emerald-500 h-full animate-pulse w-3/4 rounded-full" />
+                  </div>
+                  <span className="text-[10px] text-slate-500">Communicating with Paystack Transfer Gateways...</span>
+                </div>
+              )}
+
+              {completedPayoutRecord && (
+                <button
+                  onClick={() => setIsTransferModalOpen(false)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-3 rounded-xl transition-all cursor-pointer shadow-lg"
+                >
+                  Done / Close
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
       </motion.div>
     </motion.div>
