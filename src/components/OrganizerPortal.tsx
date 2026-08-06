@@ -4,7 +4,7 @@ import {
   BarChart3, Users, DollarSign, Settings, Search, 
   Smartphone, Building2, Check, Copy, CheckCircle2, 
   Loader2, Zap, Upload, Edit2, QrCode, Trash2, Shield, 
-  ArrowUpRight, Award
+  ArrowUpRight, Award, LogOut, ArrowLeft
 } from 'lucide-react';
 
 interface Nominee {
@@ -313,6 +313,14 @@ export const OrganizerPortal: React.FC = () => {
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
               <span className="text-xs font-bold text-slate-300">Paystack Split Active</span>
             </div>
+
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Return to Public Home"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" /> Exit Portal
+            </button>
           </div>
         </div>
       </header>
