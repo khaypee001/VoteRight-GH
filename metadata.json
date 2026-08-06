@@ -1,0 +1,6 @@
+{
+  "name": "VoteRight GH",
+  "description": "Ghana's leading awards voting and event ticketing platform built for web instant checkout, live audit tallies, candidate management, and event e-tickets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
