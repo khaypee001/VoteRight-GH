@@ -4,7 +4,7 @@ import {
   BarChart3, Users, DollarSign, Settings, Search, 
   Smartphone, Building2, Check, Copy, CheckCircle2, 
   Loader2, Zap, Upload, Edit2, QrCode, Trash2, Shield, 
-  ArrowUpRight, Award, LogOut, ArrowLeft
+  ArrowUpRight, Award, ArrowLeft
 } from 'lucide-react';
 
 interface Nominee {
@@ -30,7 +30,11 @@ interface PayoutRequest {
   createdAt: string;
 }
 
-export const OrganizerPortal: React.FC = () => {
+interface OrganizerPortalProps {
+  onExit?: () => void;
+}
+
+export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ onExit }) => {
   // Navigation & Tabs
   const [activeTab, setActiveTab] = useState<'overview' | 'nominees' | 'categories' | 'analytics' | 'payouts' | 'settings'>('overview');
   const [currency, setCurrency] = useState<'GHS' | 'USD'>('GHS');
@@ -315,7 +319,13 @@ export const OrganizerPortal: React.FC = () => {
             </div>
 
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (onExit) {
+                  onExit();
+                } else {
+                  window.location.reload();
+                }
+              }}
               className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
               title="Return to Public Home"
             >
@@ -1283,4 +1293,3 @@ export const OrganizerPortal: React.FC = () => {
     </div>
   );
 };
-
