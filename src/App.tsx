@@ -32,6 +32,7 @@ import { TicketsPage } from './components/TicketsPage';
 import { NominationsPage } from './components/NominationsPage';
 import { ContactPage } from './components/ContactPage';
 import { LoginPage } from './components/LoginPage';
+import { OrganizerLoginPage } from './components/OrganizerLoginPage';
 import { ContestDetail } from './components/ContestDetail';
 import { VotingModal } from './components/VotingModal';
 import { QuickVoteModal } from './components/QuickVoteModal';
@@ -255,6 +256,47 @@ export default function App() {
     };
   };
 
+  // Smart Search Bar / Route Interceptor
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    const cleanQuery = query.trim().toLowerCase();
+
+    // Route / Search Bar Interception for /organizer
+    if (
+      cleanQuery === '/organizer' ||
+      cleanQuery === 'organizer' ||
+      cleanQuery === '/organizers' ||
+      cleanQuery === 'organizer login' ||
+      cleanQuery === 'organizer portal' ||
+      cleanQuery.startsWith('/organizer')
+    ) {
+      // Clear search box query
+      setSearchQuery('');
+
+      // Check if user has an active organizer session
+      let isOrgAuth = false;
+      const savedUserJson = localStorage.getItem('voterightgh_user');
+      if (savedUserJson) {
+        try {
+          const u = JSON.parse(savedUserJson);
+          if (u.role === 'organizer') isOrgAuth = true;
+        } catch (e) {}
+      }
+
+      if (isOrgAuth || (user && user.role === 'organizer')) {
+        setShowOrganizerPortal(true);
+        if (typeof window !== 'undefined') window.history.pushState({}, '', '/organizer');
+      } else {
+        setSelectedContest(null);
+        setActiveTab('login');
+        setLoginErrorMessage(
+          'Organizer Portal Sign-In Required: Enter your registered organizer email and password to access the portal.'
+        );
+        if (typeof window !== 'undefined') window.history.pushState({}, '', '/organizer');
+      }
+    }
+  };
+
   // Route URL Inspector (/admin & /organizer path guards)
   useEffect(() => {
     const checkRouteGuards = () => {
@@ -273,14 +315,34 @@ export default function App() {
           setShowAdminLoginModal(true);
         }
       } else if (pathname.startsWith('/organizer')) {
-        setShowOrganizerPortal(true);
+        let isOrganizerAuth = false;
+        const savedUserJson = localStorage.getItem('voterightgh_user');
+        if (savedUserJson) {
+          try {
+            const u = JSON.parse(savedUserJson);
+            if (u.role === 'organizer') {
+              isOrganizerAuth = true;
+            }
+          } catch (e) {}
+        }
+
+        if (isOrganizerAuth || (user && user.role === 'organizer')) {
+          setShowOrganizerPortal(true);
+        } else {
+          setShowOrganizerPortal(false);
+          setSelectedContest(null);
+          setActiveTab('login');
+          setLoginErrorMessage(
+            'Organizer Portal Sign-In Required: Please log in with your registered organizer credentials to access the portal.'
+          );
+        }
       }
     };
 
     checkRouteGuards();
     window.addEventListener('popstate', checkRouteGuards);
     return () => window.removeEventListener('popstate', checkRouteGuards);
-  }, []);
+  }, [user]);
 
   // Sync to Local Storage
   useEffect(() => {
@@ -427,7 +489,7 @@ export default function App() {
           if (tab !== 'competitions') setSelectedContest(null);
         }}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         currency={currency}
         onCurrencyChange={setCurrency}
         user={user}
@@ -508,52 +570,29 @@ export default function App() {
                 {activeTab === 'contact' && <ContactPage siteSettings={siteSettings} />}
 
                 {activeTab === 'login' && (
-                  <LoginPage
-                    organizerProfiles={organizerProfiles}
-                    errorMessage={loginErrorMessage}
-                    onLoginSuccess={(session) => {
-                      setUser(session);
-                      setLoginErrorMessage('');
-                      if (session.role === 'admin') {
-                        setShowAdminPortal(true);
-                        setActiveTab('home');
-                      } else if (session.role === 'organizer') {
-                        // Re-sync organizerProfiles from localStorage to ensure newly provisioned accounts are present
-                        let updatedProfiles = organizerProfiles;
+                  window.location.pathname.toLowerCase().startsWith('/organizer') ? (
+                    <OrganizerLoginPage
+                      initialErrorMessage={loginErrorMessage}
+                      onLoginSuccess={(session, profile) => {
+                        setUser(session);
+                        localStorage.setItem('voterightgh_user', JSON.stringify(session));
+                        setLoginErrorMessage('');
+
+                        // Re-sync profiles store
+                        let currentOrgs = organizerProfiles;
                         try {
                           const saved = localStorage.getItem('voterightgh_organizer_profiles');
                           if (saved) {
                             const parsed = JSON.parse(saved);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                              updatedProfiles = parsed;
-                              setOrganizerProfiles(parsed);
-                            }
+                            if (Array.isArray(parsed) && parsed.length > 0) currentOrgs = parsed;
                           }
-                        } catch (e) {
-                          console.error('Error syncing organizer profiles on login:', e);
-                        }
+                        } catch (e) {}
 
-                        const matchedOrg = updatedProfiles.find(
-                          (o) => o.email.toLowerCase() === session.email.toLowerCase()
-                        );
-
-                        const isApproved = matchedOrg
-                          ? matchedOrg.isVerified === true ||
-                            matchedOrg.status === 'approved' ||
-                            (matchedOrg.isVerified !== false && matchedOrg.status !== 'pending' && matchedOrg.status !== 'rejected')
-                          : true;
-
-                        const isBlocked = matchedOrg
-                          ? matchedOrg.isBlocked === true || matchedOrg.status === 'rejected'
-                          : false;
-
-                        if (matchedOrg && isApproved && !isBlocked) {
+                        const matchedOrg = profile || currentOrgs.find((o) => o.email.toLowerCase() === session.email.toLowerCase());
+                        if (matchedOrg) {
                           setActiveOrganizerProfile(matchedOrg);
-                          setShowOrganizerPortal(true);
-                          setActiveTab('home');
-                        } else if (!matchedOrg) {
-                          // Dynamically create & store profile for verified organizer session
-                          const freshOrg: OrganizerProfile = {
+                        } else {
+                          const newProfile: OrganizerProfile = {
                             id: session.id || `org-${Date.now()}`,
                             email: session.email,
                             fullName: session.fullName,
@@ -565,23 +604,100 @@ export default function App() {
                             status: 'approved',
                             registeredAt: new Date().toISOString().split('T')[0],
                           };
-                          const newList = [freshOrg, ...updatedProfiles];
+                          const newList = [newProfile, ...currentOrgs];
                           setOrganizerProfiles(newList);
                           localStorage.setItem('voterightgh_organizer_profiles', JSON.stringify(newList));
-                          setActiveOrganizerProfile(freshOrg);
-                          setShowOrganizerPortal(true);
-                          setActiveTab('home');
-                        } else {
-                          setUser(null);
-                          setLoginErrorMessage(
-                            'Account pending approval. An Administrator must approve your email address before you can access the organizer dashboard.'
-                          );
+                          setActiveOrganizerProfile(newProfile);
                         }
-                      } else {
+
+                        setShowOrganizerPortal(true);
                         setActiveTab('home');
-                      }
-                    }}
-                  />
+                        if (typeof window !== 'undefined') window.history.pushState({}, '', '/organizer');
+                      }}
+                      onOpenRegistrationModal={() => {
+                        setShowOrganizerRegistrationModal(true);
+                      }}
+                      onBackToHome={() => {
+                        setActiveTab('home');
+                        if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+                      }}
+                    />
+                  ) : (
+                    <LoginPage
+                      organizerProfiles={organizerProfiles}
+                      errorMessage={loginErrorMessage}
+                      onLoginSuccess={(session) => {
+                        setUser(session);
+                        setLoginErrorMessage('');
+                        if (session.role === 'admin') {
+                          setShowAdminPortal(true);
+                          setActiveTab('home');
+                        } else if (session.role === 'organizer') {
+                          // Re-sync organizerProfiles from localStorage to ensure newly provisioned accounts are present
+                          let updatedProfiles = organizerProfiles;
+                          try {
+                            const saved = localStorage.getItem('voterightgh_organizer_profiles');
+                            if (saved) {
+                              const parsed = JSON.parse(saved);
+                              if (Array.isArray(parsed) && parsed.length > 0) {
+                                updatedProfiles = parsed;
+                                setOrganizerProfiles(parsed);
+                              }
+                            }
+                          } catch (e) {
+                            console.error('Error syncing organizer profiles on login:', e);
+                          }
+
+                          const matchedOrg = updatedProfiles.find(
+                            (o) => o.email.toLowerCase() === session.email.toLowerCase()
+                          );
+
+                          const isApproved = matchedOrg
+                            ? matchedOrg.isVerified === true ||
+                              matchedOrg.status === 'approved' ||
+                              (matchedOrg.isVerified !== false && matchedOrg.status !== 'pending' && matchedOrg.status !== 'rejected')
+                            : true;
+
+                          const isBlocked = matchedOrg
+                            ? matchedOrg.isBlocked === true || matchedOrg.status === 'rejected'
+                            : false;
+
+                          if (matchedOrg && isApproved && !isBlocked) {
+                            setActiveOrganizerProfile(matchedOrg);
+                            setShowOrganizerPortal(true);
+                            setActiveTab('home');
+                          } else if (!matchedOrg) {
+                            // Dynamically create & store profile for verified organizer session
+                            const freshOrg: OrganizerProfile = {
+                              id: session.id || `org-${Date.now()}`,
+                              email: session.email,
+                              fullName: session.fullName,
+                              phone: session.phone || '0240000000',
+                              eventTitle: 'Organized Event',
+                              paidFlatFee: true,
+                              isVerified: true,
+                              isBlocked: false,
+                              status: 'approved',
+                              registeredAt: new Date().toISOString().split('T')[0],
+                            };
+                            const newList = [freshOrg, ...updatedProfiles];
+                            setOrganizerProfiles(newList);
+                            localStorage.setItem('voterightgh_organizer_profiles', JSON.stringify(newList));
+                            setActiveOrganizerProfile(freshOrg);
+                            setShowOrganizerPortal(true);
+                            setActiveTab('home');
+                          } else {
+                            setUser(null);
+                            setLoginErrorMessage(
+                              'Account pending approval. An Administrator must approve your email address before you can access the organizer dashboard.'
+                            );
+                          }
+                        } else {
+                          setActiveTab('home');
+                        }
+                      }}
+                    />
+                  )
                 )}
               </>
             )}

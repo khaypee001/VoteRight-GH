@@ -63,7 +63,9 @@ import {
   ExternalLink,
   Eye,
   Edit2,
-  UserPlus
+  UserPlus,
+  Search,
+  Filter
 } from 'lucide-react';
 
 export interface OrganizerProfileProps {
@@ -320,6 +322,22 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   const [manualNomineePhotoUrl, setManualNomineePhotoUrl] = useState('');
   const [selectedNomineeForBadge, setSelectedNomineeForBadge] = useState<Nominee | null>(null);
 
+  // Search & Filtering in Nominees Portal
+  const [nomineeSearchQuery, setNomineeSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+
+  // Bulk Nominee Upload Modal State
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+
+  // Edit Nominee Modal State
+  const [editingNominee, setEditingNominee] = useState<Nominee | null>(null);
+  const [editNomineeName, setEditNomineeName] = useState('');
+  const [editNomineeCategory, setEditNomineeCategory] = useState('');
+  const [editNomineeCode, setEditNomineeCode] = useState('');
+  const [editNomineePhotoUrl, setEditNomineePhotoUrl] = useState('');
+  const [editNomineeBio, setEditNomineeBio] = useState('');
+
   // Settings State
   const [settingsAgencyName, setSettingsAgencyName] = useState(profile.fullName);
   const [settingsPhone, setSettingsPhone] = useState(profile.phone);
@@ -340,6 +358,110 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // Bulk Nominee Upload Handler
+  const handleBulkNomineeUpload = () => {
+    if (!selectedContest) {
+      alert('Please select or publish an event scheme first.');
+      return;
+    }
+    if (!bulkText.trim()) {
+      alert('Please enter or paste nominee details.');
+      return;
+    }
+
+    const lines = bulkText.split('\n').filter((l) => l.trim().length > 0);
+    let count = 0;
+
+    lines.forEach((line) => {
+      const parts = line.split(',').map((p) => p.trim());
+      if (parts.length >= 1 && parts[0]) {
+        const name = parts[0];
+        const category = parts[1] || 'General Category';
+        const code = parts[2] || `VR-${Math.floor(100 + Math.random() * 900)}`;
+        const photoUrl = parts[3] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80';
+        const bio = parts[4] || 'Official Nominee';
+
+        const newNom: Nominee = {
+          id: `nom-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          code,
+          name,
+          category,
+          contestId: selectedContest.id,
+          photoUrl,
+          bio,
+          votes: 0,
+          status: 'approved',
+        };
+
+        onAddNominee(newNom);
+        setLocalNominees((prev) => [newNom, ...prev]);
+        count++;
+      }
+    });
+
+    setBulkText('');
+    setShowBulkUploadModal(false);
+    showToast(`🎉 Bulk Upload Success! ${count} nominees added to ${selectedContest.title}.`);
+  };
+
+  // Edit Nominee Modal Handler
+  const handleOpenEditNominee = (nominee: Nominee) => {
+    setEditingNominee(nominee);
+    setEditNomineeName(nominee.name);
+    setEditNomineeCategory(nominee.category);
+    setEditNomineeCode(nominee.code);
+    setEditNomineePhotoUrl(nominee.photoUrl);
+    setEditNomineeBio(nominee.bio || '');
+  };
+
+  const handleSaveEditNominee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNominee) return;
+
+    const updated: Nominee = {
+      ...editingNominee,
+      name: editNomineeName.trim(),
+      category: editNomineeCategory.trim(),
+      code: editNomineeCode.trim().toUpperCase(),
+      photoUrl: editNomineePhotoUrl.trim(),
+      bio: editNomineeBio.trim(),
+    };
+
+    setLocalNominees((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+    // Sync with localStorage
+    const savedNominees = localStorage.getItem('voterightgh_nominees');
+    if (savedNominees) {
+      try {
+        const list: Nominee[] = JSON.parse(savedNominees);
+        const updatedList = list.map((n) => (n.id === updated.id ? updated : n));
+        localStorage.setItem('voterightgh_nominees', JSON.stringify(updatedList));
+      } catch (err) {
+        console.error('Error updating nominee in local storage:', err);
+      }
+    }
+
+    setEditingNominee(null);
+    showToast(`✅ Nominee "${updated.name}" updated successfully!`);
+  };
+
+  // Delete Nominee Handler
+  const handleDeleteNominee = (nomineeId: string, name: string) => {
+    if (window.confirm(`Are you sure you want to remove nominee "${name}"?`)) {
+      setLocalNominees((prev) => prev.filter((n) => n.id !== nomineeId));
+      const savedNominees = localStorage.getItem('voterightgh_nominees');
+      if (savedNominees) {
+        try {
+          const list: Nominee[] = JSON.parse(savedNominees);
+          const updatedList = list.filter((n) => n.id !== nomineeId);
+          localStorage.setItem('voterightgh_nominees', JSON.stringify(updatedList));
+        } catch (err) {
+          console.error('Error deleting nominee from local storage:', err);
+        }
+      }
+      showToast(`🗑️ Nominee "${name}" deleted.`);
+    }
   };
 
   // Toggle Event Voting Status
@@ -1604,16 +1726,26 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </div>
                 </div>
 
-                {/* 1. DEDICATED NOMINEE ADDITION FORM */}
+                {/* 1. DEDICATED NOMINEE ADDITION FORM & BULK UPLOAD BUTTON */}
                 <form onSubmit={handleAddNomineeManually} className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
                     <h5 className="font-extrabold text-white text-sm flex items-center gap-2">
                       <UserPlus className="w-4 h-4 text-emerald-400" />
                       <span>Add New Nominee / Contestant</span>
                     </h5>
-                    <span className="text-[11px] text-amber-400 font-mono font-bold">
-                      Target Event: {selectedContest?.title || 'None'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowBulkUploadModal(true)}
+                        className="bg-amber-400/20 hover:bg-amber-400 text-amber-300 hover:text-slate-950 border border-amber-400/30 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5 transition-all"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>⚡ Bulk Upload (CSV / Paste)</span>
+                      </button>
+                      <span className="text-[11px] text-amber-400 font-mono font-bold hidden sm:inline">
+                        Target Event: {selectedContest?.title || 'None'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1775,39 +1907,118 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   )}
                 </div>
 
-                {/* 3. NOMINEE DIRECTORY TABLE / GRID */}
+                {/* 3. NOMINEE DIRECTORY TABLE / GRID WITH SEARCH & FILTERS */}
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <h5 className="font-extrabold text-white text-sm">Nominee Directory ({contestNominees.length})</h5>
-                    <span className="text-xs text-slate-400">Click "Voting Card / QR" to view or download official voting cards</span>
-                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <h5 className="font-extrabold text-white text-sm">Nominee Directory ({contestNominees.length})</h5>
+                      <p className="text-xs text-slate-400">Search, edit, manage or generate QR cards for active contestants.</p>
+                    </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {contestNominees.map((nom) => (
-                      <div key={nom.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-4 items-center">
-                        <img src={nom.photoUrl} alt={nom.name} className="w-16 h-16 rounded-xl object-cover border border-slate-700 shrink-0" />
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <h6 className="font-extrabold text-sm text-white truncate">{nom.name}</h6>
-                            <span className="text-xs font-mono font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                              {nom.code}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-400 truncate">{nom.category}</div>
-                          <div className="text-xs font-bold text-emerald-400">{nom.votes.toLocaleString()} Votes</div>
-
-                          <div className="pt-1 flex items-center gap-2">
-                            <button
-                              onClick={() => setSelectedNomineeForBadge(nom)}
-                              className="bg-slate-800 hover:bg-slate-700 text-amber-400 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer flex items-center gap-1"
-                            >
-                              <QrCode className="w-3 h-3" /> Voting Card & QR
-                            </button>
-                          </div>
-                        </div>
+                    {/* Search and Category Filter Inputs */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <div className="relative flex-1 sm:w-56">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={nomineeSearchQuery}
+                          onChange={(e) => setNomineeSearchQuery(e.target.value)}
+                          placeholder="Search candidate or code..."
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
+                        />
                       </div>
-                    ))}
+
+                      {/* Category Filter Dropdown */}
+                      <select
+                        value={selectedCategoryFilter}
+                        onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-medium shrink-0 max-w-[140px]"
+                      >
+                        <option value="ALL">All Categories</option>
+                        {Array.from(new Set(contestNominees.map((n) => n.category))).map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  {/* Filtered Nominees List */}
+                  {(() => {
+                    const filtered = contestNominees.filter((n) => {
+                      const matchesSearch =
+                        n.name.toLowerCase().includes(nomineeSearchQuery.toLowerCase()) ||
+                        n.code.toLowerCase().includes(nomineeSearchQuery.toLowerCase()) ||
+                        n.category.toLowerCase().includes(nomineeSearchQuery.toLowerCase());
+                      const matchesCat =
+                        selectedCategoryFilter === 'ALL' ||
+                        n.category.toLowerCase() === selectedCategoryFilter.toLowerCase();
+                      return matchesSearch && matchesCat;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-8 bg-slate-900/50 rounded-xl border border-slate-800 text-xs text-slate-400">
+                          No nominees matching "{nomineeSearchQuery}" found in this event.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filtered.map((nom) => (
+                          <motion.div
+                            key={nom.id}
+                            whileHover={{ y: -3, scale: 1.01 }}
+                            className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-4 items-center relative group"
+                          >
+                            <img
+                              src={nom.photoUrl}
+                              alt={nom.name}
+                              className="w-16 h-16 rounded-xl object-cover border border-slate-700 shrink-0"
+                            />
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center justify-between">
+                                <h6 className="font-extrabold text-sm text-white truncate">{nom.name}</h6>
+                                <span className="text-xs font-mono font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                                  {nom.code}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-400 truncate">{nom.category}</div>
+                              <div className="text-xs font-bold text-emerald-400">
+                                {nom.votes.toLocaleString()} Votes
+                              </div>
+
+                              <div className="pt-2 flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedNomineeForBadge(nom)}
+                                  className="bg-slate-800 hover:bg-slate-700 text-amber-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-700 cursor-pointer flex items-center gap-1"
+                                >
+                                  <QrCode className="w-3 h-3" /> Card & QR
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditNominee(nom)}
+                                  className="bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-500/30 cursor-pointer flex items-center gap-1"
+                                >
+                                  <Edit2 className="w-3 h-3" /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteNominee(nom.id, nom.name)}
+                                  className="bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white text-[10px] font-bold px-2 py-1 rounded-lg border border-rose-500/30 cursor-pointer flex items-center gap-1 ml-auto"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -2334,6 +2545,190 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
               >
                 Download Printable Poster QR
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* MODAL: BULK NOMINEE UPLOAD */}
+      <AnimatePresence>
+        {showBulkUploadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl relative text-white"
+            >
+              <button
+                type="button"
+                onClick={() => setShowBulkUploadModal(false)}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2 text-amber-400 font-extrabold text-base">
+                <Upload className="w-5 h-5" />
+                <span>Bulk Upload Nominees (CSV / Paste)</span>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Paste list of contestants below (one contestant per line). Format:
+                <br />
+                <code className="text-[11px] text-amber-300 font-mono bg-slate-950 px-2 py-0.5 rounded mt-1 block border border-slate-800">
+                  Full Name, Category, Code, PhotoURL, Bio
+                </code>
+              </p>
+
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={6}
+                placeholder={`Stonebwoy, Artiste of the Year, ST01, https://..., Reggae pioneer\nSarkodie, Artiste of the Year, SK02, https://..., Hip-hop icon\nBlack Sherif, Best New Artiste, BS03, https://..., Highlife fusion`}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkUploadModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkNomineeUpload}
+                  className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-slate-950 bg-amber-400 hover:bg-amber-300 cursor-pointer flex items-center gap-1.5 shadow-lg"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Process Bulk Upload</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: EDIT NOMINEE */}
+      <AnimatePresence>
+        {editingNominee && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-white"
+            >
+              <button
+                type="button"
+                onClick={() => setEditingNominee(null)}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2 text-blue-400 font-extrabold text-base">
+                <Edit2 className="w-5 h-5" />
+                <span>Edit Nominee Details</span>
+              </div>
+
+              <form onSubmit={handleSaveEditNominee} className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Full / Stage Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNomineeName}
+                    onChange={(e) => setEditNomineeName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Award Category</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNomineeCategory}
+                    onChange={(e) => setEditNomineeCategory(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Voting Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNomineeCode}
+                    onChange={(e) => setEditNomineeCode(e.target.value.toUpperCase())}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-blue-500 uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1 flex justify-between">
+                    <span>Photo URL or Upload</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={editNomineePhotoUrl}
+                      onChange={(e) => setEditNomineePhotoUrl(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                    <label className="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 cursor-pointer flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
+                      <Upload className="w-4 h-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, setEditNomineePhotoUrl);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Bio / Slogan</label>
+                  <input
+                    type="text"
+                    value={editNomineeBio}
+                    onChange={(e) => setEditNomineeBio(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingNominee(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 bg-slate-800 hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 cursor-pointer shadow-lg"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

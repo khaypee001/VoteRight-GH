@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession, OrganizerProfile } from '../types';
-import { User, Lock, Mail, Phone, ArrowRight, AlertTriangle, ShieldCheck, Loader2 } from 'lucide-react';
+import { User, Lock, Mail, Phone, ArrowRight, AlertTriangle, ShieldCheck, Loader2, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface LoginPageProps {
@@ -14,6 +14,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ organizerProfiles = [], er
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [errorBanner, setErrorBanner] = useState<string>(propsErrorMessage || '');
   const [loading, setLoading] = useState(false);
+
+  // Detect if accessed via /organizer route
+  const isOrganizerRoute = typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/organizer');
 
   useEffect(() => {
     if (propsErrorMessage) {
@@ -78,7 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ organizerProfiles = [], er
       console.log('Supabase sign-in notice:', err);
     }
 
-    // 2. Local credentials check
+    // 2. Local credentials check against registered profiles & auth users
     let localOrgs: OrganizerProfile[] = organizerProfiles;
     try {
       const savedOrgs = localStorage.getItem('voterightgh_organizer_profiles');
@@ -149,8 +152,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ organizerProfiles = [], er
       }
 
       role = 'organizer';
-    } else if (cleanEmail.includes('organizer')) {
-      role = 'organizer';
+    } else if (isOrganizerRoute) {
+      // Reject organizer login if no registered organizer account exists
+      setErrorBanner('Invalid organizer credentials. No registered organizer account found for this email address. Please register your organization or contact system support.');
+      setLoading(false);
+      return;
+    } else if (matchedAuthUser) {
+      if (matchedAuthUser.password && cleanPassword && cleanPassword !== matchedAuthUser.password) {
+        setErrorBanner('Invalid email address or password. Please try again.');
+        setLoading(false);
+        return;
+      }
+      role = matchedAuthUser.role || 'user';
     }
 
     const session: UserSession = {
@@ -260,13 +273,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ organizerProfiles = [], er
         {/* Header Branding */}
         <div className="text-center space-y-2">
           <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-md">
-            <User className="w-6 h-6" />
+            {isOrganizerRoute ? <Building2 className="w-6 h-6 text-amber-300" /> : <User className="w-6 h-6" />}
           </div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-            Account Access
+            {isOrganizerRoute ? 'Organizer Portal Sign-In' : 'Account Access'}
           </h2>
           <p className="text-xs text-slate-500">
-            Sign in to access your voter account or organizer dashboard.
+            {isOrganizerRoute
+              ? 'Enter your registered organizer credentials to access the management portal.'
+              : 'Sign in to access your voter account or organizer dashboard.'}
           </p>
         </div>
 

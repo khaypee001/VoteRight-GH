@@ -93,6 +93,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole, ch
           }
           redirectUser('admin');
         } else {
+          // If accessing /organizer directly, do NOT do hard redirect - SPA route guard will open login view
+          if (window.location.pathname.toLowerCase().startsWith('/organizer')) {
+            if (isMounted) {
+              setIsAllowed(false);
+              setLoading(false);
+            }
+            return;
+          }
           redirectUser('organizer');
         }
       } catch (err) {
