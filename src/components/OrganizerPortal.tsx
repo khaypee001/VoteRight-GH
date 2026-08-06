@@ -1,4 +1,4 @@
-Import React, { useState, useEffect } from 'react';
+import react, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Contest, 
