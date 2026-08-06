@@ -2337,426 +2337,236 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   >
                     <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold">
-                          <Zap className="w-4 h-4" />
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                          <Send className="w-4 h-4" />
                         </div>
                         <div>
-                          <h5 className="font-extrabold text-white text-sm">Request On-Demand Payout</h5>
-                          <p className="text-[11px] text-slate-400">Initiate automated transfer from subaccount to your MoMo wallet</p>
+                          <h5 className="font-extrabold text-sm text-white">Request Instant On-Demand Payout</h5>
+                          <p className="text-[11px] text-slate-400">Triggers automated transfer via Paystack Transfer API</p>
                         </div>
                       </div>
-
-                      <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg">
-                        API v2.0
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Instant Settlement
                       </span>
                     </div>
 
                     {payoutError && (
-                      <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <div className="bg-rose-500/20 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>{payoutError}</span>
                       </div>
                     )}
 
                     {payoutSuccess && (
-                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                      <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-300 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
                         <span>{payoutSuccess}</span>
                       </div>
                     )}
 
-                    <form onSubmit={handlePayoutSubmit} className="space-y-4">
-                      {/* Select Event */}
+                    <form onSubmit={handlePayoutSubmit} className="space-y-4 text-xs">
+                      {/* Select Event Scheme */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue Subaccount</label>
+                        <label className="text-slate-300 block mb-1 font-bold">Source Event / Contest</label>
                         <select
                           value={selectedPayoutEventId}
                           onChange={(e) => setSelectedPayoutEventId(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
                         >
                           {myContests.map(c => (
-                            <option key={c.id} value={c.id}>{c.title}</option>
+                            <option key={c.id} value={c.id}>{c.title} ({c.totalVotes} votes)</option>
                           ))}
                         </select>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Payment Method */}
-                        <div>
-                          <label className="text-xs font-bold text-slate-300 block mb-1">Payout Gateway Method</label>
-                          <select
-                            value={payoutMethod}
-                            onChange={(e) => setPayoutMethod(e.target.value as any)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
-                          >
-                            <option value="Mobile Money">Mobile Money Instant Transfer</option>
-                            <option value="Bank Transfer">Direct Bank Wire</option>
-                          </select>
+                      {/* Amount & Preset Buttons */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-slate-300 font-bold">Payout Amount (GHS)</label>
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => handleSelectPreset(25)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">25%</button>
+                            <button type="button" onClick={() => handleSelectPreset(50)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">50%</button>
+                            <button type="button" onClick={() => handleSelectPreset(75)} className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">75%</button>
+                            <button type="button" onClick={() => handleSelectPreset(100)} className="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">MAX</button>
+                          </div>
                         </div>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">GHS</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            value={payoutAmount}
+                            onChange={(e) => setPayoutAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-12 pr-4 py-2.5 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-1 block">
+                          Available for transfer: <span className="text-emerald-400 font-semibold">{formatPrice(availableBalance, currency)}</span>
+                        </span>
+                      </div>
 
-                        {/* Network / Provider */}
-                        <div>
-                          <label className="text-xs font-bold text-slate-300 block mb-1">
-                            {payoutMethod === 'Mobile Money' ? 'MoMo Network Provider' : 'Bank Name'}
-                          </label>
-                          {payoutMethod === 'Mobile Money' ? (
-                            <select
-                              value={momoNetwork}
-                              onChange={(e) => setMomoNetwork(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                            >
-                              <option value="MTN MoMo">MTN Mobile Money</option>
-                              <option value="Telecel Cash">Telecel Cash (Vodafone)</option>
-                              <option value="AT Money">AT Money (AirtelTigo)</option>
-                            </select>
-                          ) : (
-                            <select
-                              value={bankName}
-                              onChange={(e) => setBankName(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                            >
-                              <option value="Ecobank Ghana">Ecobank Ghana</option>
-                              <option value="GCB Bank">GCB Bank</option>
-                              <option value="Stanbic Bank">Stanbic Bank</option>
-                              <option value="Fidelity Bank">Fidelity Bank</option>
-                              <option value="Zenith Bank">Zenith Bank</option>
-                              <option value="CalBank">CalBank</option>
-                            </select>
-                          )}
+                      {/* Payment Method Selector */}
+                      <div>
+                        <label className="text-slate-300 block mb-1 font-bold">Payout Destination Method</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setPayoutMethod('Mobile Money')}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                              payoutMethod === 'Mobile Money'
+                                ? 'bg-emerald-950/40 border-emerald-500 text-white font-bold'
+                                : 'bg-slate-900 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>Mobile Money (MTN/Telecel/AT)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setPayoutMethod('Bank Transfer')}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                              payoutMethod === 'Bank Transfer'
+                                ? 'bg-emerald-950/40 border-emerald-500 text-white font-bold'
+                                : 'bg-slate-900 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                            <span>Bank Account (Ghana)</span>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* MoMo / Account Number */}
+                      {/* Network / Bank Name */}
+                      {payoutMethod === 'Mobile Money' ? (
                         <div>
-                          <label className="text-xs font-bold text-slate-300 block mb-1">
-                            {payoutMethod === 'Mobile Money' ? 'MoMo Wallet Number' : 'Account Number'}
+                          <label className="text-slate-300 block mb-1 font-bold">Mobile Money Network</label>
+                          <select
+                            value={momoNetwork}
+                            onChange={(e) => setMomoNetwork(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="MTN MoMo">MTN Mobile Money</option>
+                            <option value="Telecel Cash">Telecel Cash</option>
+                            <option value="AT Money">AT Money (AirtelTigo)</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-slate-300 block mb-1 font-bold">Bank Institution</label>
+                          <select
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="Ecobank Ghana">Ecobank Ghana</option>
+                            <option value="GCB Bank">GCB Bank</option>
+                            <option value="Stanbic Bank Ghana">Stanbic Bank Ghana</option>
+                            <option value="Fidelity Bank Ghana">Fidelity Bank Ghana</option>
+                            <option value="CalBank">CalBank</option>
+                            <option value="Access Bank Ghana">Access Bank Ghana</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Account Number & Name */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-slate-300 block mb-1 font-bold">
+                            {payoutMethod === 'Mobile Money' ? 'Mobile Number' : 'Account Number'}
                           </label>
                           <input
                             type="text"
                             required
                             value={accountNumber}
                             onChange={(e) => setAccountNumber(e.target.value)}
-                            placeholder="024XXXXXXX"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 font-bold"
+                            placeholder={payoutMethod === 'Mobile Money' ? '0241234567' : 'Acc Number'}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
                           />
                         </div>
 
-                        {/* Account Holder Name */}
                         <div>
-                          <label className="text-xs font-bold text-slate-300 block mb-1">Account Holder Name</label>
+                          <label className="text-slate-300 block mb-1 font-bold">Registered Account Name</label>
                           <input
                             type="text"
                             required
                             value={accountName}
                             onChange={(e) => setAccountName(e.target.value)}
-                            placeholder="Exact account name"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                            placeholder="Full Legal Name"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500"
                           />
                         </div>
                       </div>
 
-                      {/* Withdrawal Amount with Quick Percentage Presets */}
-                      <div className="space-y-2 pt-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-300">
-                            Requested Payout Amount (GHS)
-                          </label>
-                          <span className="text-[11px] font-mono text-emerald-400 font-bold">
-                            Max Available: GHS {availableBalance.toFixed(2)}
-                          </span>
-                        </div>
-
-                        <div className="relative">
-                          <input
-                            type="number"
-                            required
-                            step="0.01"
-                            max={availableBalance}
-                            value={payoutAmount}
-                            onChange={(e) => setPayoutAmount(e.target.value)}
-                            placeholder={`Enter GHS amount (e.g. ${availableBalance > 0 ? availableBalance.toFixed(2) : '100.00'})`}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-3.5 pr-20 py-2.5 text-sm text-amber-400 font-mono font-black focus:outline-none focus:border-emerald-500"
-                          />
-                          <div className="absolute right-3 top-2.5 text-xs font-extrabold text-slate-500 pointer-events-none">
-                            GHS
-                          </div>
-                        </div>
-
-                        {/* Quick Preset Buttons */}
-                        <div className="flex items-center gap-2 pt-1">
-                          <span className="text-[10px] text-slate-500 font-bold uppercase">Quick Fill:</span>
-                          {[25, 50, 75, 100].map((pct) => (
-                            <button
-                              key={pct}
-                              type="button"
-                              onClick={() => handleSelectPreset(pct)}
-                              disabled={availableBalance <= 0}
-                              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono font-bold text-amber-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-40"
-                            >
-                              {pct}%
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                      <button
                         type="submit"
                         disabled={isSubmittingPayout || availableBalance <= 0}
-                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs sm:text-sm py-3.5 rounded-xl transition-all shadow-xl shadow-emerald-900/30 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                       >
                         {isSubmittingPayout ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Processing Paystack Transfer API...</span>
                           </>
                         ) : (
                           <>
-                            <Zap className="w-4 h-4 text-amber-300" />
-                            <span>Request Payout (Paystack Transfer API)</span>
-                            <ArrowRight className="w-4 h-4 ml-1" />
+                            <Zap className="w-4 h-4" />
+                            <span>Initiate Instant Payout ({formatPrice(parseFloat(payoutAmount) || 0, currency)})</span>
                           </>
                         )}
-                      </motion.button>
+                      </button>
                     </form>
                   </motion.div>
 
-                  {/* Right Column: Subaccount Architecture Details (Slide In Right) */}
+                  {/* Right Column: Payout Requests History & Paystack Transfer Details (Slide In Right) */}
                   <motion.div 
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                    className="lg:col-span-5 space-y-4"
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+                    className="lg:col-span-5 space-y-6"
                   >
-                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-amber-400" />
-                          <h5 className="font-extrabold text-white text-xs uppercase tracking-wider">
-                            Subaccount Details
-                          </h5>
-                        </div>
-                        <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                          Active
-                        </span>
+                        <h5 className="font-extrabold text-sm text-white">Payout History & Transfers</h5>
+                        <span className="text-[11px] text-slate-400">{payoutRequestsHistory.length} transactions</span>
                       </div>
 
-                      <div className="space-y-3 text-xs">
-                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Subaccount Code</span>
-                          <button
-                            onClick={() => handleCopyCode(subaccount.subaccountCode, 'Subaccount Code')}
-                            className="font-mono text-amber-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{subaccount.subaccountCode}</span>
-                            <Copy className="w-3 h-3 text-slate-500" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Primary Settlement Network</span>
-                          <span className="font-bold text-white">{subaccount.settlementBank}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Target Wallet / MoMo</span>
-                          <span className="font-mono text-emerald-400 font-bold">{subaccount.accountNumber}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Platform Split Rule</span>
-                          <span className="font-bold text-white">85% Organizer / 15% Platform</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* How On-Demand Subaccount Works */}
-                    <div className="bg-gradient-to-br from-blue-950/40 via-slate-950 to-indigo-950/40 border border-blue-500/30 rounded-2xl p-5 space-y-3 shadow-xl">
-                      <div className="flex items-center gap-2 text-blue-400 font-extrabold text-xs">
-                        <ShieldCheck className="w-4 h-4 text-blue-400" />
-                        <span>Paystack Subaccount Workflow</span>
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        Every vote purchase made via Paystack instantly routes 85% of net ticket funds directly into your dedicated subaccount. Money remains safe until you click <strong>"Request Payout"</strong>.
-                      </p>
-                      <div className="space-y-2 pt-1">
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>No automatic daily sweeping required</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>Direct MoMo & Bank Transfer API integration</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>Instant transaction reference logging</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-
-                {/* Live Transfer Execution Modal */}
-                {isTransferModalOpen && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative"
-                    >
-                      <div className="text-center space-y-2">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg">
-                          {completedPayoutRecord ? (
-                            <CheckCircle2 className="w-7 h-7 text-emerald-400" />
-                          ) : (
-                            <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
-                          )}
-                        </div>
-
-                        <h4 className="text-lg font-black text-white">
-                          {completedPayoutRecord ? 'Payout Transferred Successfully!' : 'Executing Paystack Transfer API'}
-                        </h4>
-                        <p className="text-xs text-slate-400">
-                          {completedPayoutRecord 
-                            ? `GHS ${completedPayoutRecord.amount.toFixed(2)} disbursed to ${completedPayoutRecord.accountName}` 
-                            : transferStepLabel}
-                        </p>
-                      </div>
-
-                      {/* 5-Step Visual Pipeline */}
-                      <div className="space-y-2.5 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 text-xs">
-                        {[
-                          "1. Subaccount & Balance Audit",
-                          "2. Generating Recipient Code",
-                          "3. Invoking Paystack Transfer API",
-                          "4. Disbursing to MoMo / Bank Wallet",
-                          "5. Finalizing Cryptographic Ledger"
-                        ].map((stepText, idx) => {
-                          const stepNum = idx + 1;
-                          const isDone = activeTransferStep > stepNum || completedPayoutRecord !== null;
-                          const isCurrent = activeTransferStep === stepNum && !completedPayoutRecord;
-
-                          return (
-                            <div key={idx} className="flex items-center justify-between">
-                              <span className={`font-medium ${isDone ? 'text-emerald-400 font-bold' : isCurrent ? 'text-amber-300 font-bold' : 'text-slate-500'}`}>
-                                {stepText}
-                              </span>
-                              <div>
-                                {isDone && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                                {isCurrent && <Loader2 className="w-4 h-4 text-amber-300 animate-spin" />}
-                                {!isDone && !isCurrent && <span className="text-[10px] text-slate-600 font-mono">Pending</span>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Completed Details Box */}
-                      {completedPayoutRecord && (
-                        <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-4 space-y-2 text-xs">
-                          <div className="flex justify-between items-center text-emerald-300">
-                            <span className="font-bold">Transfer Code:</span>
-                            <span className="font-mono font-bold">{completedPayoutRecord.transferCode}</span>
+                      <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                        {payoutRequestsHistory.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-500">
+                            No payout requests recorded yet.
                           </div>
-                          <div className="flex justify-between items-center text-emerald-300">
-                            <span className="font-bold">Tx Hash:</span>
-                            <span className="font-mono text-[10px] text-slate-300 truncate max-w-[180px]">
-                              {completedPayoutRecord.txHash}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-emerald-300">
-                            <span className="font-bold">Status:</span>
-                            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                              Disbursed
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {completedPayoutRecord && (
-                        <button
-                          onClick={() => {
-                            setIsTransferModalOpen(false);
-                            setCompletedPayoutRecord(null);
-                          }}
-                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-3 rounded-xl transition-all shadow cursor-pointer"
-                        >
-                          Done & Close
-                        </button>
-                      )}
-                    </motion.div>
-                  </div>
-                )}
-
-                {/* Payout History Ledger Table */}
-                <motion.div 
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden space-y-3 p-5 shadow-xl"
-                >
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h5 className="font-extrabold text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-amber-400" />
-                      <span>Paystack Transfer & Payout History</span>
-                    </h5>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {payoutRequestsHistory.length} Total Records
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-300">
-                      <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                        <tr>
-                          <th className="py-2.5 px-3">Date</th>
-                          <th className="py-2.5 px-3">Method / Network</th>
-                          <th className="py-2.5 px-3">Account Details</th>
-                          <th className="py-2.5 px-3">Transfer Code</th>
-                          <th className="py-2.5 px-3">Amount</th>
-                          <th className="py-2.5 px-3 text-right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {payoutRequestsHistory.map((p) => (
-                          <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
-                            <td className="py-2.5 px-3 font-mono text-[11px]">
-                              {new Date(p.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="py-2.5 px-3 font-medium text-white">
-                              {p.momoNetwork || p.bankOrNetworkName || 'MoMo'}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-400 font-mono">
-                              {p.accountNumber} ({p.accountName})
-                            </td>
-                            <td className="py-2.5 px-3 font-mono text-slate-400 text-[11px]">
-                              {p.transferCode || 'TRF_VRG_INIT'}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-amber-400 font-mono">
-                              GHS {p.amount.toFixed(2)}
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <span
-                                className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                        ) : (
+                          payoutRequestsHistory.map((p) => (
+                            <div key={p.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-amber-400 text-xs font-bold">{formatPrice(p.amount, currency)}</span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                                   p.status === 'APPROVED' || p.status === 'Paid' || p.status === 'DISBURSED'
                                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                                     : p.status === 'REJECTED'
                                     ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                }`}
-                              >
-                                {p.status === 'APPROVED' ? 'DISBURSED' : p.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </motion.div>
+                                }`}>
+                                  {p.status}
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-white font-medium truncate">{p.eventTitle || 'VoteRight Payout'}</div>
+
+                              <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                                <span>{p.paymentMethod} • {p.momoNetwork || 'Bank'}</span>
+                                <span className="font-mono">{new Date(p.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             )}
 
@@ -2764,111 +2574,42 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             {activeTab === 'settings' && (
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-lg font-black text-white">Organizer Settings & Viral Tools</h4>
-                  <p className="text-xs text-slate-400">Manage organizer profile credentials and generate viral event share assets.</p>
+                  <h4 className="text-lg font-black text-white">Organizer Profile Settings & Viral Promo Tools</h4>
+                  <p className="text-xs text-slate-400">Manage your agency brand identity, contact phone, and promotional assets.</p>
                 </div>
 
-                {/* Organizer Profile Form */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-2">
-                    Organizer Agency Profile
-                  </h5>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-5">
+                  <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-3">Agency Brand Settings</h5>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-1">Agency / Organization Name</label>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">Agency / Organizer Name</label>
                       <input
                         type="text"
                         value={settingsAgencyName}
                         onChange={(e) => setSettingsAgencyName(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-medium"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-1">Official Contact Phone</label>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">Contact Phone Number</label>
                       <input
                         type="text"
                         value={settingsPhone}
                         onChange={(e) => setSettingsPhone(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-1">Agency Logo URL</label>
-                      <input
-                        type="url"
-                        value={settingsLogoUrl}
-                        onChange={(e) => setSettingsLogoUrl(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-400 block mb-1">Default MoMo Payout Phone Number</label>
-                      <input
-                        type="text"
-                        value={settingsMomoNumber}
-                        onChange={(e) => setSettingsMomoNumber(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                       />
                     </div>
                   </div>
 
                   <button
-                    onClick={() => showToast('Organizer profile settings saved!')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+                    type="button"
+                    onClick={() => showToast('✅ Organizer profile settings updated successfully!')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl transition-all shadow cursor-pointer"
                   >
-                    Save Profile Settings
+                    Save Changes
                   </button>
-                </div>
-
-                {/* Viral & Growth Tools */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <h5 className="font-extrabold text-amber-400 text-sm border-b border-slate-800 pb-2">
-                    Viral Campaign Tools & Event Poster QR Codes
-                  </h5>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                      <Share2 className="w-5 h-5 text-blue-400" />
-                      <div className="font-bold text-xs text-white">Event Share Link</div>
-                      <p className="text-[11px] text-slate-400">Direct URL for voters to land on your voting page.</p>
-                      <button
-                        onClick={handleCopyVotingLink}
-                        className="w-full bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white font-bold text-xs py-2 rounded-lg transition cursor-pointer"
-                      >
-                        Copy Share Link
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                      <QrCode className="w-5 h-5 text-amber-400" />
-                      <div className="font-bold text-xs text-white">Download Poster QR Code</div>
-                      <p className="text-[11px] text-slate-400">High-resolution QR code image for flyer printing.</p>
-                      <button
-                        onClick={() => setShowPosterModal(true)}
-                        className="w-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs py-2 rounded-lg transition cursor-pointer"
-                      >
-                        View Poster QR
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                      <Download className="w-5 h-5 text-emerald-400" />
-                      <div className="font-bold text-xs text-white">Export Votes CSV Report</div>
-                      <p className="text-[11px] text-slate-400">Download complete audit log of votes for transparency.</p>
-                      <button
-                        onClick={handleExportCSV}
-                        className="w-full bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs py-2 rounded-lg transition cursor-pointer"
-                      >
-                        Export Votes CSV
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -2877,311 +2618,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
         </div>
 
       </motion.div>
-
-      {/* MODAL: NOMINEE VOTING BADGE / QR CODE */}
-      <AnimatePresence>
-        {selectedNomineeForBadge && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
-          >
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl relative text-white"
-            >
-              <button
-                onClick={() => setSelectedNomineeForBadge(null)}
-                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="text-xs font-black uppercase text-amber-400 tracking-wider">
-                Official Voting Card
-              </div>
-
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                <img src={selectedNomineeForBadge.photoUrl} alt={selectedNomineeForBadge.name} className="w-24 h-24 rounded-2xl object-cover mx-auto border-2 border-amber-400 shadow-lg" />
-                <div>
-                  <h3 className="font-extrabold text-lg text-white">{selectedNomineeForBadge.name}</h3>
-                  <p className="text-xs text-slate-400 font-medium">{selectedNomineeForBadge.category}</p>
-                </div>
-
-                <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-3">
-                  <span className="text-[10px] text-amber-300 uppercase font-bold block">Unique Voting Code</span>
-                  <span className="text-2xl font-black text-amber-400 font-mono tracking-widest block">
-                    {selectedNomineeForBadge.code}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-white rounded-xl max-w-[140px] mx-auto">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                      `${window.location.origin}/quick-vote?code=${selectedNomineeForBadge.code}`
-                    )}`}
-                    alt="QR Code"
-                    className="w-full h-auto"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 font-mono">Scan or enter code on VoteRight GH</p>
-              </div>
-
-              <button
-                onClick={() => {
-                  showToast(`Voting card badge downloaded for ${selectedNomineeForBadge.name}!`);
-                  setSelectedNomineeForBadge(null);
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-3 rounded-xl cursor-pointer"
-              >
-                Download Nominee Card & QR
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL: POSTER QR CODE */}
-      <AnimatePresence>
-        {showPosterModal && selectedContest && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
-          >
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl relative text-white"
-            >
-              <button
-                onClick={() => setShowPosterModal(false)}
-                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <h4 className="font-black text-base text-white">Event Poster QR Code</h4>
-
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                <img src={selectedContest.bannerUrl} alt="Banner" className="w-full h-28 object-cover rounded-xl" />
-                <h5 className="font-black text-sm text-amber-400">{selectedContest.title}</h5>
-
-                <div className="p-3 bg-white rounded-xl max-w-[160px] mx-auto">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                      `${window.location.origin}/contest/${selectedContest.id}`
-                    )}`}
-                    alt="Event QR"
-                    className="w-full h-auto"
-                  />
-                </div>
-                <p className="text-xs text-slate-300 font-mono">Scan to vote directly on VoteRight GH</p>
-              </div>
-
-              <button
-                onClick={() => {
-                  showToast('Event poster QR image downloaded!');
-                  setShowPosterModal(false);
-                }}
-                className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs py-3 rounded-xl cursor-pointer"
-              >
-                Download Printable Poster QR
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* MODAL: BULK NOMINEE UPLOAD */}
-      <AnimatePresence>
-        {showBulkUploadModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl relative text-white"
-            >
-              <button
-                type="button"
-                onClick={() => setShowBulkUploadModal(false)}
-                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-2 text-amber-400 font-extrabold text-base">
-                <Upload className="w-5 h-5" />
-                <span>Bulk Upload Nominees (CSV / Paste)</span>
-              </div>
-
-              <p className="text-xs text-slate-300">
-                Paste list of contestants below (one contestant per line). Format:
-                <br />
-                <code className="text-[11px] text-amber-300 font-mono bg-slate-950 px-2 py-0.5 rounded mt-1 block border border-slate-800">
-                  Full Name, Category, Code, PhotoURL, Bio
-                </code>
-              </p>
-
-              <textarea
-                value={bulkText}
-                onChange={(e) => setBulkText(e.target.value)}
-                rows={6}
-                placeholder={`Stonebwoy, Artiste of the Year, ST01, https://..., Reggae pioneer\nSarkodie, Artiste of the Year, SK02, https://..., Hip-hop icon\nBlack Sherif, Best New Artiste, BS03, https://..., Highlife fusion`}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-              />
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkUploadModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkNomineeUpload}
-                  className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-slate-950 bg-amber-400 hover:bg-amber-300 cursor-pointer flex items-center gap-1.5 shadow-lg"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Process Bulk Upload</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL: EDIT NOMINEE */}
-      <AnimatePresence>
-        {editingNominee && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-white"
-            >
-              <button
-                type="button"
-                onClick={() => setEditingNominee(null)}
-                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-2 text-blue-400 font-extrabold text-base">
-                <Edit2 className="w-5 h-5" />
-                <span>Edit Nominee Details</span>
-              </div>
-
-              <form onSubmit={handleSaveEditNominee} className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Full / Stage Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={editNomineeName}
-                    onChange={(e) => setEditNomineeName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Award Category</label>
-                  <input
-                    type="text"
-                    required
-                    value={editNomineeCategory}
-                    onChange={(e) => setEditNomineeCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Voting Code</label>
-                  <input
-                    type="text"
-                    required
-                    value={editNomineeCode}
-                    onChange={(e) => setEditNomineeCode(e.target.value.toUpperCase())}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-blue-500 uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1 flex justify-between">
-                    <span>Photo URL or Upload</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={editNomineePhotoUrl}
-                      onChange={(e) => setEditNomineePhotoUrl(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
-                    />
-                    <label className="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 cursor-pointer flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
-                      <Upload className="w-4 h-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(file, setEditNomineePhotoUrl);
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Bio / Slogan</label>
-                  <input
-                    type="text"
-                    value={editNomineeBio}
-                    onChange={(e) => setEditNomineeBio(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setEditingNominee(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 bg-slate-800 hover:text-white cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 cursor-pointer shadow-lg"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </motion.div>
   );
 };
+
