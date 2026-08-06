@@ -132,7 +132,13 @@ export default function App() {
   const [showQuickVoteModal, setShowQuickVoteModal] = useState<boolean>(false);
   const [quickVoteCode, setQuickVoteCode] = useState<string>('');
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
-  const [showOrganizerPortal, setShowOrganizerPortal] = useState<boolean>(false);
+  const [showOrganizerPortal, setShowOrganizerPortal] = useState<boolean>(() => {
+    let savedUser = null;
+    try {
+      savedUser = JSON.parse(localStorage.getItem('voterightgh_user') || 'null');
+    } catch (e) {}
+    return savedUser?.role === 'organizer' || window.location.pathname.toLowerCase().startsWith('/organizer');
+  });
   const [showOrganizerRegistrationModal, setShowOrganizerRegistrationModal] = useState<boolean>(false);
   const [showAdminPortal, setShowAdminPortal] = useState<boolean>(false);
   const [showAdminLoginModal, setShowAdminLoginModal] = useState<boolean>(false);
@@ -151,7 +157,6 @@ export default function App() {
   }) => {
     const cleanEmail = data.email.trim().toLowerCase();
 
-    // 1. Sync current organizer profiles from state & localStorage
     let currentOrgs = organizerProfiles;
     try {
       const saved = localStorage.getItem('voterightgh_organizer_profiles');
@@ -172,7 +177,6 @@ export default function App() {
     let finalOrgProfile: OrganizerProfile;
 
     if (existingOrgIndex >= 0) {
-      // UPGRADE / UPDATE existing organizer profile
       const existing = currentOrgs[existingOrgIndex];
       finalOrgProfile = {
         ...existing,
@@ -187,7 +191,6 @@ export default function App() {
       };
       currentOrgs[existingOrgIndex] = finalOrgProfile;
     } else {
-      // CREATE new organizer profile
       finalOrgProfile = {
         id: `org-${Date.now()}`,
         email: cleanEmail,
@@ -205,14 +208,12 @@ export default function App() {
       currentOrgs = [finalOrgProfile, ...currentOrgs];
     }
 
-    // Update App State & LocalStorage for organizer profiles
     setOrganizerProfiles(currentOrgs);
     localStorage.setItem(
       'voterightgh_organizer_profiles',
       JSON.stringify(currentOrgs)
     );
 
-    // 2. Sync with voterightgh_users_auth and dynamically elevate role to 'organizer'
     let usersAuth: any[] = [];
     try {
       usersAuth = JSON.parse(
@@ -233,7 +234,7 @@ export default function App() {
       fullName: finalOrgProfile.fullName,
       phone: finalOrgProfile.phone,
       agency: finalOrgProfile.agency,
-      role: 'organizer', // Dynamically elevate / enforce organizer role
+      role: 'organizer',
       status: finalOrgProfile.status,
       isVerified: finalOrgProfile.isVerified,
     };
@@ -256,12 +257,10 @@ export default function App() {
     };
   };
 
-  // Smart Search Bar / Route Interceptor
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     const cleanQuery = query.trim().toLowerCase();
 
-    // Route / Search Bar Interception for /organizer
     if (
       cleanQuery === '/organizer' ||
       cleanQuery === 'organizer' ||
@@ -270,10 +269,8 @@ export default function App() {
       cleanQuery === 'organizer portal' ||
       cleanQuery.startsWith('/organizer')
     ) {
-      // Clear search box query
       setSearchQuery('');
 
-      // Check if user has an active organizer session
       let isOrgAuth = false;
       const savedUserJson = localStorage.getItem('voterightgh_user');
       if (savedUserJson) {
@@ -297,7 +294,6 @@ export default function App() {
     }
   };
 
-  // Route URL Inspector (/admin & /organizer path guards)
   useEffect(() => {
     const checkRouteGuards = () => {
       const pathname = window.location.pathname.toLowerCase();
@@ -344,7 +340,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', checkRouteGuards);
   }, [user]);
 
-  // Sync to Local Storage
   useEffect(() => {
     localStorage.setItem('voterightgh_contests', JSON.stringify(contests));
   }, [contests]);
@@ -402,14 +397,11 @@ export default function App() {
     }
   }, [user]);
 
-  // Confirm Vote Payment Handler
   const handleConfirmVote = (tx: VoteTransaction) => {
-    // Increment candidate votes
     setNominees((prev) =>
       prev.map((n) => (n.id === tx.nomineeId ? { ...n, votes: n.votes + tx.votesCount } : n))
     );
 
-    // Increment contest total votes
     setContests((prev) =>
       prev.map((c) => (c.id === tx.contestId ? { ...c, totalVotes: c.totalVotes + tx.votesCount } : c))
     );
@@ -420,7 +412,6 @@ export default function App() {
 
     setTransactions((prev) => [tx, ...prev]);
 
-    // Live Feed Ticker Update
     const newFeed: RecentVoteFeed = {
       id: `rv-${Date.now()}`,
       voterName: tx.voterName,
@@ -438,7 +429,6 @@ export default function App() {
     setActiveTab('competitions');
   };
 
-  // Direct Code Lookup Trigger
   const handleQuickVoteByCode = (code: string) => {
     const found = nominees.find((n) => n.code.toUpperCase() === code.toUpperCase());
     if (found) {
@@ -476,12 +466,33 @@ export default function App() {
     );
   }
 
+  if (showOrganizerPortal && (user?.role === 'organizer' || window.location.pathname.toLowerCase().startsWith('/organizer'))) {
+    return (
+      <ProtectedRoute requiredRole="organizer">
+        <OrganizerPortal
+          organizerProfile={activeOrganizerProfile}
+          contests={contests}
+          nominees={nominees}
+          currency={currency}
+          onUpdateContest={handleUpdateContest}
+          onAddContest={handleAddContest}
+          onUpdateNomineeStatus={handleUpdateNomineeStatus}
+          onAddNominee={handleAddNominee}
+          onClose={() => {
+            setShowOrganizerPortal(false);
+            setUser(null);
+            localStorage.removeItem('voterightgh_user');
+            if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+          }}
+        />
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">
-      {/* Recent Activity Ticker */}
       <Ticker recentVotes={recentVotes} announcements={siteSettings.tickerAnnouncements} />
 
-      {/* Main Top Header Navigation */}
       <Header
         activeTab={activeTab}
         onSelectTab={(tab) => {
@@ -497,7 +508,6 @@ export default function App() {
         onOpenQuickVoteModal={() => setShowQuickVoteModal(true)}
       />
 
-      {/* Page Body Router Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
           <motion.div
@@ -578,7 +588,6 @@ export default function App() {
                         localStorage.setItem('voterightgh_user', JSON.stringify(session));
                         setLoginErrorMessage('');
 
-                        // Re-sync profiles store
                         let currentOrgs = organizerProfiles;
                         try {
                           const saved = localStorage.getItem('voterightgh_organizer_profiles');
@@ -633,7 +642,6 @@ export default function App() {
                           setShowAdminPortal(true);
                           setActiveTab('home');
                         } else if (session.role === 'organizer') {
-                          // Re-sync organizerProfiles from localStorage to ensure newly provisioned accounts are present
                           let updatedProfiles = organizerProfiles;
                           try {
                             const saved = localStorage.getItem('voterightgh_organizer_profiles');
@@ -667,7 +675,6 @@ export default function App() {
                             setShowOrganizerPortal(true);
                             setActiveTab('home');
                           } else if (!matchedOrg) {
-                            // Dynamically create & store profile for verified organizer session
                             const freshOrg: OrganizerProfile = {
                               id: session.id || `org-${Date.now()}`,
                               email: session.email,
@@ -705,7 +712,6 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Site Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 text-slate-300 text-xs py-12 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -770,7 +776,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* MODALS */}
       {votingModalData && (
         <VotingModal
           nominee={votingModalData.nominee}
@@ -809,22 +814,6 @@ export default function App() {
         />
       )}
 
-      {showOrganizerPortal && (
-        <ProtectedRoute requiredRole="organizer">
-          <OrganizerPortal
-            organizerProfile={activeOrganizerProfile}
-            contests={contests}
-            nominees={nominees}
-            currency={currency}
-            onUpdateContest={handleUpdateContest}
-            onAddContest={handleAddContest}
-            onUpdateNomineeStatus={handleUpdateNomineeStatus}
-            onAddNominee={handleAddNominee}
-            onClose={() => setShowOrganizerPortal(false)}
-          />
-        </ProtectedRoute>
-      )}
-
       {showAdminLoginModal && (
         <AdminLoginModal
           onUnlockSuccess={(session) => {
@@ -848,3 +837,4 @@ export default function App() {
     </div>
   );
 }
+
