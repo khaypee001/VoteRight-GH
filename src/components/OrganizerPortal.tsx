@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BarChart3, Users, DollarSign, Settings, Download, Plus, Search, 
-  Filter, Smartphone, Building2, Check, Copy, CheckCircle2, 
-  Loader2, Zap, Upload, Edit2, QrCode, Trash2, Shield, Eye, 
-  ArrowUpRight, Award, AlertCircle
+  BarChart3, Users, DollarSign, Settings, Search, 
+  Smartphone, Building2, Check, Copy, CheckCircle2, 
+  Loader2, Zap, Upload, Edit2, QrCode, Trash2, Shield, 
+  ArrowUpRight, Award
 } from 'lucide-react';
 
 interface Nominee {
@@ -118,7 +118,7 @@ export const VoteRightOrganizerDashboard: React.FC = () => {
   const [settingsAgencyName, setSettingsAgencyName] = useState('Khay Hub Events & Awards');
   const [settingsPhone, setSettingsPhone] = useState('+233 24 555 7890');
   const [settingsMomoNumber, setSettingsMomoNumber] = useState('0244123456');
-  const [showPosterModal, setShowPosterModal] = useState(false);
+  const [, setShowPosterModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handleCopyVotingLink = () => {
@@ -258,17 +258,12 @@ export const VoteRightOrganizerDashboard: React.FC = () => {
   });
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 selection:bg-amber-400 selection:text-slate-950"
-    >
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 selection:bg-amber-400 selection:text-slate-950">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div 
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            value="toast"
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             className="fixed top-5 right-5 z-50 bg-amber-400 text-slate-950 px-5 py-3 rounded-2xl font-black text-xs shadow-2xl flex items-center gap-2 border border-amber-300"
@@ -323,12 +318,7 @@ export const VoteRightOrganizerDashboard: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.4 }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6"
-      >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-2 relative overflow-hidden">
@@ -1282,6 +1272,6 @@ export const VoteRightOrganizerDashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-    </motion.div>
+    </div>
   );
 };
