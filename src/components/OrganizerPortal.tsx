@@ -30,7 +30,7 @@ interface PayoutRequest {
   createdAt: string;
 }
 
-export const VoteRightOrganizerDashboard: React.FC = () => {
+export const OrganizerPortal: React.FC = () => {
   // Navigation & Tabs
   const [activeTab, setActiveTab] = useState<'overview' | 'nominees' | 'categories' | 'analytics' | 'payouts' | 'settings'>('overview');
   const [currency, setCurrency] = useState<'GHS' | 'USD'>('GHS');
@@ -1275,3 +1275,4 @@ export const VoteRightOrganizerDashboard: React.FC = () => {
     </div>
   );
 };
+
