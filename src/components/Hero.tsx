@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   Zap, 
   Search, 
@@ -60,8 +61,13 @@ export const Hero: React.FC<HeroProps> = ({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Hero Messaging */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+          {/* Left Hero Messaging - Slides in from Left */}
+          <motion.div 
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-7 space-y-6 text-center lg:text-left"
+          >
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/10 via-amber-500/10 to-indigo-500/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-300 shadow-sm">
               <Zap className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
               <span>Africa's Most Trusted Voting & E-Ticketing Platform</span>
@@ -81,29 +87,45 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Quick Stats Badges */}
             <div className="grid grid-cols-3 gap-3 pt-2 max-w-lg mx-auto lg:mx-0">
-              <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center">
+              <motion.div 
+                whileHover={{ y: -3, scale: 1.02 }}
+                className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center transition-shadow hover:border-amber-400/40"
+              >
                 <div className="text-lg sm:text-xl font-extrabold text-amber-400">
                   {totalVotesCount.toLocaleString()}+
                 </div>
                 <div className="text-[11px] text-slate-400 font-medium">Votes Cast</div>
-              </div>
-              <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center">
+              </motion.div>
+
+              <motion.div 
+                whileHover={{ y: -3, scale: 1.02 }}
+                className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center transition-shadow hover:border-blue-400/40"
+              >
                 <div className="text-lg sm:text-xl font-extrabold text-blue-400">
                   100%
                 </div>
                 <div className="text-[11px] text-slate-400 font-medium">Instant Audit</div>
-              </div>
-              <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center">
+              </motion.div>
+
+              <motion.div 
+                whileHover={{ y: -3, scale: 1.02 }}
+                className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-center transition-shadow hover:border-emerald-400/40"
+              >
                 <div className="text-lg sm:text-xl font-extrabold text-emerald-400">
                   24/7
                 </div>
                 <div className="text-[11px] text-slate-400 font-medium">Live Leaderboards</div>
-              </div>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Right Direct Code Lookup Card */}
-          <div className="lg:col-span-5">
+          {/* Right Direct Code Lookup Card - Slides in from Right */}
+          <motion.div 
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-5"
+          >
             <div className="bg-gradient-to-b from-slate-800/90 to-slate-900/95 border border-slate-700/90 rounded-2xl p-6 shadow-2xl shadow-blue-950/40 relative overflow-hidden backdrop-blur-xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -135,13 +157,15 @@ export const Hero: React.FC<HeroProps> = ({
                     placeholder="Enter Candidate Code (e.g. VRG-101)"
                     className="w-full bg-slate-950/90 border border-slate-700 focus:border-amber-400 text-white text-base font-mono font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-400/20 placeholder:text-slate-600 tracking-wider uppercase"
                   />
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.96 }}
                     type="submit"
-                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold px-4 rounded-lg text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                    className="absolute right-1.5 top-1.5 bottom-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold px-4 rounded-lg text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                   >
                     <span>Vote Now</span>
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  </motion.button>
                 </div>
 
                 {codeError && (
@@ -150,36 +174,21 @@ export const Hero: React.FC<HeroProps> = ({
 
                 <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400">
                   <span className="font-medium text-slate-400">Sample codes:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCandidateCodeInput('VRG-101');
-                      setCodeError('');
-                    }}
-                    className="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded border border-slate-700 font-mono text-[10px]"
-                  >
-                    VRG-101
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCandidateCodeInput('JHS-01');
-                      setCodeError('');
-                    }}
-                    className="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded border border-slate-700 font-mono text-[10px]"
-                  >
-                    JHS-01
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCandidateCodeInput('MED-01');
-                      setCodeError('');
-                    }}
-                    className="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded border border-slate-700 font-mono text-[10px]"
-                  >
-                    MED-01
-                  </button>
+                  {['VRG-101', 'JHS-01', 'MED-01'].map((code) => (
+                    <motion.button
+                      key={code}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      type="button"
+                      onClick={() => {
+                        setCandidateCodeInput(code);
+                        setCodeError('');
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-0.5 rounded border border-slate-700 font-mono text-[10px] cursor-pointer"
+                    >
+                      {code}
+                    </motion.button>
+                  ))}
                 </div>
               </form>
 
@@ -190,11 +199,16 @@ export const Hero: React.FC<HeroProps> = ({
                 <span>Encrypted Audit Log</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Category Filter Tabs */}
-        <div className="mt-10 pt-6 border-t border-slate-800/60">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-10 pt-6 border-t border-slate-800/60"
+        >
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Browse Contests & Categories
@@ -208,8 +222,10 @@ export const Hero: React.FC<HeroProps> = ({
             {categories.map((cat) => {
               const isSelected = selectedCategoryFilter === cat.id;
               return (
-                <button
+                <motion.button
                   key={cat.id}
+                  whileHover={{ scale: 1.03, y: -1 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => onSelectCategoryFilter(cat.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border ${
                     isSelected
@@ -218,11 +234,11 @@ export const Hero: React.FC<HeroProps> = ({
                   }`}
                 >
                   <span>{cat.label}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -23,9 +23,12 @@ export const ContestCard: React.FC<ContestCardProps> = ({
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -6, scale: 1.01, transition: { duration: 0.2 } }}
+      whileTap={{ scale: 0.99 }}
       className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-amber-400/50 transition-colors duration-300 shadow-xl flex flex-col group hover:shadow-2xl hover:shadow-amber-500/10 relative"
     >
       {/* Banner Header */}
