@@ -137,7 +137,7 @@ export default function App() {
     try {
       savedUser = JSON.parse(localStorage.getItem('voterightgh_user') || 'null');
     } catch (e) {}
-    return savedUser?.role === 'organizer' || window.location.pathname.toLowerCase().startsWith('/organizer');
+    return savedUser?.role === 'organizer' && window.location.pathname.toLowerCase().startsWith('/organizer');
   });
   const [showOrganizerRegistrationModal, setShowOrganizerRegistrationModal] = useState<boolean>(false);
   const [showAdminPortal, setShowAdminPortal] = useState<boolean>(false);
@@ -466,7 +466,7 @@ export default function App() {
     );
   }
 
-  if (showOrganizerPortal && (user?.role === 'organizer' || window.location.pathname.toLowerCase().startsWith('/organizer'))) {
+  if (showOrganizerPortal && user?.role === 'organizer') {
     return (
       <ProtectedRoute requiredRole="organizer">
         <OrganizerPortal
@@ -539,7 +539,16 @@ export default function App() {
                     onSelectContest={handleSelectContestFromCard}
                     onGoToCompetitions={() => setActiveTab('competitions')}
                     onGoToResults={() => setActiveTab('results')}
-                    onOpenOrganizerPortal={() => setShowOrganizerPortal(true)}
+                    onOpenOrganizerPortal={() => {
+                      if (user?.role === 'organizer') {
+                        setShowOrganizerPortal(true);
+                        if (typeof window !== 'undefined') window.history.pushState({}, '', '/organizer');
+                      } else {
+                        setActiveTab('login');
+                        setLoginErrorMessage('Organizer Portal Sign-In Required: Enter your registered organizer email and password to access the portal.');
+                        if (typeof window !== 'undefined') window.history.pushState({}, '', '/organizer');
+                      }
+                    }}
                     onOpenOrganizerRegistration={() => setShowOrganizerRegistrationModal(true)}
                     onOpenQuickVoteModal={() => setShowQuickVoteModal(true)}
                   />
@@ -838,3 +847,4 @@ export default function App() {
     </div>
   );
 }
+
