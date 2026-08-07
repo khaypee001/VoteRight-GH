@@ -984,6 +984,84 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
               </div>
 
+              {/* Active Events & Contests Cards in Overview */}
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-400" /> Active Events & Competitions ({contests.length})
+                    </h3>
+                    <p className="text-xs text-slate-400">Manage event details, pricing, status, or click Edit Event to update.</p>
+                  </div>
+                  <button
+                    onClick={() => { setEditingContest(null); setIsCreatingContest(true); }}
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <Plus className="w-4 h-4" /> Add New Event
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                  {contests.map((c) => (
+                    <div key={c.id} className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 flex flex-col justify-between gap-4 transition-all">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <img src={c.bannerUrl} alt={c.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-800" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[10px] font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded uppercase">
+                                {c.category}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${c.isLive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                                {c.isLive ? 'Ongoing' : 'Closed'}
+                              </span>
+                            </div>
+                            <h4 className="font-extrabold text-sm text-white line-clamp-1">{c.title}</h4>
+                            <p className="text-xs text-slate-400">{c.organizer}</p>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-400 line-clamp-2">{c.description}</p>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs bg-slate-900 p-2.5 rounded-xl border border-slate-800/80 font-medium">
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase font-bold">End Date</span>
+                            <span className="text-slate-200 font-mono">{c.endDate || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase font-bold">Price / Vote</span>
+                            <span className="text-amber-400 font-mono font-bold">GH₵ {c.votePrice.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                        <div className="text-xs text-slate-400 font-bold">
+                          <span className="text-white font-mono">{c.totalVotes.toLocaleString()}</span> votes
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditingContest(c)}
+                            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow transition-all"
+                            title="Edit Event"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit Event</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContest(c.id, c.title)}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl cursor-pointer"
+                            title="Delete Event"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Pending Approvals Callout */}
               {pendingNominees.length > 0 && (
                 <div className="bg-rose-500/10 border border-rose-500/30 p-5 rounded-3xl flex items-center justify-between gap-4">
