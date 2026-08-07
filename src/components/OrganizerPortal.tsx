@@ -179,6 +179,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   const [editFlyerUrl, setEditFlyerUrl] = useState(selectedContest?.bannerUrl || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editingContestModal, setEditingContestModal] = useState<Contest | null>(null);
+  const [editModalBannerUrl, setEditModalBannerUrl] = useState<string>('');
+
+  const handleOpenEditModal = (contest: Contest) => {
+    setEditingContestModal(contest);
+    setEditModalBannerUrl(contest.bannerUrl || '');
+  };
 
   // Modal Edit Event submit handler
   const handleSaveModalContest = (e: React.FormEvent<HTMLFormElement>) => {
@@ -186,19 +192,35 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     if (!editingContestModal) return;
 
     const formData = new FormData(e.currentTarget);
-    const title = (formData.get('title') as string) || editingContestModal.title;
+    const title = (formData.get('title') as string)?.trim() || editingContestModal.title;
+    const organizer = (formData.get('organizer') as string)?.trim() || editingContestModal.organizer || profile.fullName || '';
     const category = (formData.get('category') as any) || editingContestModal.category;
-    const description = (formData.get('description') as string) || editingContestModal.description;
-    const endDate = (formData.get('endDate') as string) || editingContestModal.endDate;
-    const bannerUrl = (formData.get('bannerUrl') as string) || editingContestModal.bannerUrl;
+    const description = (formData.get('description') as string)?.trim() || editingContestModal.description;
+    const startDate = (formData.get('startDate') as string)?.trim() || editingContestModal.startDate || new Date().toISOString().split('T')[0];
+    const endDate = (formData.get('endDate') as string)?.trim() || editingContestModal.endDate;
+    const votePrice = parseFloat(formData.get('votePrice') as string) || editingContestModal.votePrice;
+    const isLive = formData.get('isLive') === 'true';
+    const bannerUrl = editModalBannerUrl.trim() || (formData.get('bannerUrl') as string)?.trim() || editingContestModal.bannerUrl;
+    const slug = (formData.get('slug') as string)?.trim() || editingContestModal.slug || '';
+    const nomineeOnboardingMode = (formData.get('nomineeOnboardingMode') as any) || editingContestModal.nomineeOnboardingMode || 'hybrid';
+    const rulesRaw = formData.get('rules') as string;
+    const rules = rulesRaw !== null ? rulesRaw.split('\n').map(r => r.trim()).filter(Boolean) : editingContestModal.rules;
 
     const updatedContest: Contest = {
       ...editingContestModal,
       title,
+      organizer,
       category,
       description,
+      startDate,
       endDate,
-      bannerUrl
+      votePrice,
+      isLive,
+      bannerUrl,
+      slug: slug || undefined,
+      nomineeOnboardingMode,
+      allowSelfRegistration: nomineeOnboardingMode !== 'organizer_only',
+      rules
     };
 
     onUpdateContest(updatedContest);
@@ -1151,7 +1173,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingContestModal(contest);
+                                handleOpenEditModal(contest);
                               }}
                               className="text-xs font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 shadow cursor-pointer shrink-0"
                             >
@@ -1202,7 +1224,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                           {/* Action Controls */}
                           <div className="flex items-center gap-3 flex-wrap">
                             <button
-                              onClick={() => setEditingContestModal(contest)}
+                              onClick={() => handleOpenEditModal(contest)}
                               className="text-xs font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow cursor-pointer"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -3248,7 +3270,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl relative"
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 my-8 text-white shadow-2xl relative"
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -3266,50 +3288,168 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
               </div>
 
               <form onSubmit={handleSaveModalContest} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Event Title</label>
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    defaultValue={editingContestModal.title}
-                    placeholder="e.g. MISS CAMPUS GHANA 2026"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">Category</label>
+                    <label className="block font-bold text-slate-300 mb-1">Event Title</label>
                     <input
                       type="text"
-                      name="category"
+                      name="title"
                       required
-                      defaultValue={editingContestModal.category}
-                      placeholder="e.g. Pageant / Awards / Election"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium capitalize"
+                      defaultValue={editingContestModal.title}
+                      placeholder="e.g. MISS CAMPUS GHANA 2026"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Organizer Name</label>
+                    <input
+                      type="text"
+                      name="organizer"
+                      required
+                      defaultValue={editingContestModal.organizer || profile.fullName || ''}
+                      placeholder="e.g. Campus Events Ghana"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Category Type</label>
+                    <select
+                      name="category"
+                      defaultValue={editingContestModal.category || 'pageant'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    >
+                      <option value="pageant">Beauty Pageant</option>
+                      <option value="award">Excellence Award</option>
+                      <option value="election">Student Election</option>
+                      <option value="talent">Talent Show</option>
+                      <option value="other">Other Event</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Price Per Vote (GH₵)</label>
+                    <input
+                      type="number"
+                      step="0.10"
+                      name="votePrice"
+                      required
+                      defaultValue={editingContestModal.votePrice || 1.50}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-amber-400 focus:outline-none focus:border-amber-400 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Voting Status</label>
+                    <select
+                      name="isLive"
+                      defaultValue={editingContestModal.isLive ? 'true' : 'false'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-bold"
+                    >
+                      <option value="true">Ongoing (Live)</option>
+                      <option value="false">Closed (Paused)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      defaultValue={editingContestModal.startDate || new Date().toISOString().split('T')[0]}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
                     />
                   </div>
 
                   <div>
                     <label className="block font-bold text-slate-300 mb-1">End Date</label>
                     <input
-                      type="text"
+                      type="date"
                       name="endDate"
                       required
                       defaultValue={editingContestModal.endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
-                      placeholder="YYYY-MM-DD"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Custom URL Slug (Optional)</label>
+                    <input
+                      type="text"
+                      name="slug"
+                      defaultValue={editingContestModal.slug || ''}
+                      placeholder="e.g. miss-campus-2026"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-amber-300 font-mono text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Nominee Registration Mode</label>
+                    <select
+                      name="nomineeOnboardingMode"
+                      defaultValue={editingContestModal.nomineeOnboardingMode || 'hybrid'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    >
+                      <option value="hybrid">Hybrid (Public Self-Reg + Organizer Upload)</option>
+                      <option value="public_self_register">Public Self-Registration Only</option>
+                      <option value="organizer_only">Organizer Upload Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Banner Flyer Image URL or Upload</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      name="bannerUrl"
+                      value={editModalBannerUrl}
+                      onChange={(e) => setEditModalBannerUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono text-xs"
+                    />
+                    <label className="bg-slate-800 hover:bg-slate-700 px-3.5 py-2.5 rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1.5 text-xs font-extrabold text-slate-200 shrink-0">
+                      <Upload className="w-4 h-4 text-amber-400" />
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              if (typeof reader.result === 'string') {
+                                setEditModalBannerUrl(reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {editModalBannerUrl && (
+                    <div className="mt-2 h-28 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 relative">
+                      <img src={editModalBannerUrl} alt="Flyer Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Event Description</label>
                   <textarea
                     name="description"
-                    rows={3}
-                    required
+                    rows={2}
                     defaultValue={editingContestModal.description}
                     placeholder="Provide details about this contest or event..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
@@ -3317,13 +3457,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Banner Flyer Image URL</label>
-                  <input
-                    type="url"
-                    name="bannerUrl"
-                    defaultValue={editingContestModal.bannerUrl}
-                    placeholder="https://..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono text-[11px]"
+                  <label className="block font-bold text-slate-300 mb-1">Rules & Regulations (One rule per line)</label>
+                  <textarea
+                    name="rules"
+                    rows={2}
+                    defaultValue={editingContestModal.rules ? editingContestModal.rules.join('\n') : ''}
+                    placeholder="Rule 1...&#10;Rule 2..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
 

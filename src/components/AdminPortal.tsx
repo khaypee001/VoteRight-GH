@@ -45,7 +45,10 @@ import {
   PlusCircle,
   Tag,
   Database,
-  LogOut
+  LogOut,
+  Upload,
+  Calendar,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -109,6 +112,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // Modals / Editing States
   const [editingContest, setEditingContest] = useState<Contest | null>(null);
   const [isCreatingContest, setIsCreatingContest] = useState(false);
+  const [adminModalBannerUrl, setAdminModalBannerUrl] = useState<string>('');
+
+  const handleAdminFileUpload = (file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setAdminModalBannerUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpenEditAdminContest = (contest: Contest) => {
+    setEditingContest(contest);
+    setAdminModalBannerUrl(contest.bannerUrl || '');
+  };
 
   const [editingNominee, setEditingNominee] = useState<Nominee | null>(null);
   const [isCreatingNominee, setIsCreatingNominee] = useState(false);
@@ -171,18 +191,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const title = formData.get('title') as string;
     const organizer = formData.get('organizer') as string;
     const category = formData.get('category') as any;
-    const bannerUrl = formData.get('bannerUrl') as string;
+    const bannerUrl = adminModalBannerUrl.trim() || (formData.get('bannerUrl') as string) || '';
     const description = formData.get('description') as string;
+    const startDate = (formData.get('startDate') as string) || new Date().toISOString().split('T')[0];
     const endDate = formData.get('endDate') as string;
     const votePrice = parseFloat(formData.get('votePrice') as string) || 1.50;
     const isLive = formData.get('isLive') === 'true';
+    const slug = formData.get('slug') as string;
+    const nomineeOnboardingMode = (formData.get('nomineeOnboardingMode') as any) || 'hybrid';
     const rulesRaw = formData.get('rules') as string;
-    const rules = rulesRaw ? rulesRaw.split('\n').filter((r) => r.trim()) : [];
+    const rules = rulesRaw ? rulesRaw.split('\n').map((r) => r.trim()).filter(Boolean) : [];
 
     if (editingContest) {
       const updated = contests.map((c) =>
         c.id === editingContest.id
-          ? { ...c, title, organizer, category, bannerUrl, description, endDate: endDate || c.endDate, votePrice, isLive, rules }
+          ? {
+              ...c,
+              title,
+              organizer: organizer || c.organizer,
+              category,
+              bannerUrl: bannerUrl || c.bannerUrl,
+              description,
+              startDate: startDate || c.startDate,
+              endDate: endDate || c.endDate,
+              votePrice,
+              isLive,
+              slug: slug || c.slug,
+              nomineeOnboardingMode,
+              allowSelfRegistration: nomineeOnboardingMode !== 'organizer_only',
+              rules
+            }
           : c
       );
       onUpdateContests(updated);
@@ -192,16 +230,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       const newC: Contest = {
         id: `contest-${Date.now()}`,
         title,
-        organizer,
+        organizer: organizer || 'Admin',
         category,
         bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=1200',
         description,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: startDate || new Date().toISOString().split('T')[0],
         endDate: endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
         isLive,
         votePrice,
         totalVotes: 0,
         categories: ['General'],
+        slug: slug || undefined,
+        nomineeOnboardingMode,
+        allowSelfRegistration: nomineeOnboardingMode !== 'organizer_only',
         rules: rules.length > 0 ? rules : ['Each vote costs GH₵ ' + votePrice.toFixed(2)]
       };
       onUpdateContests([newC, ...contests]);
@@ -1041,7 +1082,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setEditingContest(c)}
+                            onClick={() => handleOpenEditAdminContest(c)}
                             className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow transition-all"
                             title="Edit Event"
                           >
@@ -1302,7 +1343,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 {c.isLive ? <Pause className="w-4 h-4 text-amber-400" /> : <Play className="w-4 h-4 text-emerald-400" />}
                               </button>
                               <button
-                                onClick={() => setEditingContest(c)}
+                                onClick={() => handleOpenEditAdminContest(c)}
                                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                                 title="Edit Event"
                               >
@@ -2105,30 +2146,33 @@ CREATE TABLE IF NOT EXISTS public.nominees (
       {/* MODAL: CREATE / EDIT CONTEST */}
       {(isCreatingContest || editingContest) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 my-8 text-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-extrabold text-lg text-white">
-                {editingContest ? 'Edit Contest Settings' : 'Create New Event / Contest'}
-              </h3>
-              <button onClick={() => { setIsCreatingContest(false); setEditingContest(null); }} className="text-slate-400 hover:text-white">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-amber-400" />
+                <h3 className="font-extrabold text-lg text-white">
+                  {editingContest ? `Edit Event: ${editingContest.title}` : 'Create New Event / Contest'}
+                </h3>
+              </div>
+              <button onClick={() => { setIsCreatingContest(false); setEditingContest(null); }} className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveContest} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Contest Title</label>
-                <input
-                  type="text"
-                  name="title"
-                  required
-                  defaultValue={editingContest?.title || ''}
-                  placeholder="e.g. MISS HERITAGE PAGEANT 2026"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Event Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    defaultValue={editingContest?.title || ''}
+                    placeholder="e.g. MISS HERITAGE PAGEANT 2026"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Organizer Name</label>
                   <input
@@ -2137,37 +2181,27 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                     required
                     defaultValue={editingContest?.organizer || ''}
                     placeholder="e.g. Empire Entertainment"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Category Type</label>
                   <select
                     name="category"
                     defaultValue={editingContest?.category || 'pageant'}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
                   >
                     <option value="pageant">Beauty Pageant</option>
                     <option value="award">Excellence Award</option>
                     <option value="election">Student Election</option>
                     <option value="talent">Talent Show</option>
+                    <option value="other">Other Event</option>
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Banner Image URL</label>
-                <input
-                  type="url"
-                  name="bannerUrl"
-                  defaultValue={editingContest?.bannerUrl || ''}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Price Per Vote (GH₵)</label>
                   <input
@@ -2176,33 +2210,103 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                     name="votePrice"
                     required
                     defaultValue={editingContest?.votePrice || 1.50}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono font-bold"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-amber-400 focus:outline-none focus:border-amber-400 font-mono font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">End Date</label>
-                  <input
-                    type="text"
-                    name="endDate"
-                    required
-                    defaultValue={editingContest?.endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
-                    placeholder="2026-12-31"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Status</label>
+                  <label className="block font-bold text-slate-300 mb-1">Voting Status</label>
                   <select
                     name="isLive"
                     defaultValue={editingContest ? (editingContest.isLive ? 'true' : 'false') : 'true'}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-bold"
                   >
                     <option value="true">Ongoing (Live)</option>
-                    <option value="false">Closed</option>
+                    <option value="false">Closed (Paused)</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    name="startDate"
+                    defaultValue={editingContest?.startDate || new Date().toISOString().split('T')[0]}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    required
+                    defaultValue={editingContest?.endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Custom URL Slug (Optional)</label>
+                  <input
+                    type="text"
+                    name="slug"
+                    defaultValue={editingContest?.slug || ''}
+                    placeholder="e.g. miss-heritage-2026"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-amber-300 font-mono text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Nominee Registration Mode</label>
+                  <select
+                    name="nomineeOnboardingMode"
+                    defaultValue={editingContest?.nomineeOnboardingMode || 'hybrid'}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  >
+                    <option value="hybrid">Hybrid (Public Self-Reg + Organizer Upload)</option>
+                    <option value="public_self_register">Public Self-Registration Only</option>
+                    <option value="organizer_only">Organizer Upload Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Banner / Flyer Image URL or Upload</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    name="bannerUrl"
+                    value={adminModalBannerUrl}
+                    onChange={(e) => setAdminModalBannerUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                  />
+                  <label className="bg-slate-800 hover:bg-slate-700 px-3.5 py-2.5 rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1.5 text-xs font-extrabold text-slate-200 shrink-0">
+                    <Upload className="w-4 h-4 text-amber-400" />
+                    <span>Upload</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAdminFileUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {adminModalBannerUrl && (
+                  <div className="mt-2 h-28 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 relative">
+                    <img src={adminModalBannerUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -2217,7 +2321,7 @@ CREATE TABLE IF NOT EXISTS public.nominees (
               </div>
 
               <div>
-                <label className="block font-bold text-slate-300 mb-1">Rules (One rule per line)</label>
+                <label className="block font-bold text-slate-300 mb-1">Rules & Regulations (One rule per line)</label>
                 <textarea
                   name="rules"
                   rows={2}
@@ -2227,19 +2331,20 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => { setIsCreatingContest(false); setEditingContest(null); }}
-                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl cursor-pointer"
+                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl cursor-pointer flex items-center gap-2 shadow-lg"
                 >
-                  Save Contest
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingContest ? 'Save Changes' : 'Create Event'}</span>
                 </button>
               </div>
             </form>
