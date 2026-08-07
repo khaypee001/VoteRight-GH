@@ -4,8 +4,7 @@ import {
   CheckCircle, XCircle, ToggleLeft, ToggleRight, Plus, 
   DollarSign, Users, Calendar, AlertTriangle, Send, Search, Clock,
   UserCheck, ShieldCheck, Mail, Phone, Lock, Building2, UserPlus,
-  Trash2, ShieldAlert, CheckCircle2, AlertCircle, BarChart3, 
-  Receipt, MessageSquare, Flag, TrendingUp, ShieldX
+  Trash2, ShieldAlert, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { OrganizerProfile, Contest } from '../types';
 
@@ -30,8 +29,8 @@ export interface AdminPageProps {
 
 // --- MOCK INITIAL DATA FALLBACKS ---
 const initialEvents = [
-  { id: '1', title: 'Ghana Music Awards UK - Nominees', organizer: 'Creative Arts GH', isOngoing: true, totalVotes: 14520, votePrice: 1, revenue: 14520, endDate: '2026-12-31T23:59' },
-  { id: '2', title: 'SRC Executive Elections 2026', organizer: 'UG Campus Council', isOngoing: false, totalVotes: 8900, votePrice: 1, revenue: 8900, endDate: '2026-08-01T18:00' },
+  { id: '1', title: 'Ghana Music Awards UK - Nominees', organizer: 'Creative Arts GH', isOngoing: true, totalVotes: 14520, revenue: 14520, endDate: '2026-12-31T23:59' },
+  { id: '2', title: 'SRC Executive Elections 2026', organizer: 'UG Campus Council', isOngoing: false, totalVotes: 8900, revenue: 8900, endDate: '2026-08-01T18:00' },
 ];
 
 const initialOrganizersFallback: OrganizerProfile[] = [
@@ -64,18 +63,7 @@ const initialOrganizersFallback: OrganizerProfile[] = [
 ];
 
 const initialPayouts = [
-  { id: 'pay-1', userId: 'org-1', organizerName: 'UG Campus Council', eventTitle: 'SRC Executive Elections 2026', amount: 8455, paymentMethod: 'Mobile Money', momoNetwork: 'MTN MoMo', accountNumber: '0241112233', accountName: 'UG Campus Election Board', status: 'PENDING', createdAt: '2026-08-04T12:00:00Z' },
-];
-
-const initialTransactions = [
-  { id: 'tx-101', contestTitle: 'Ghana Music Awards UK', nominee: 'Sarkodie (Best Rapper)', votes: 50, amount: 50, channel: 'MTN MoMo', phone: '024****123', status: 'SUCCESS', timestamp: '2026-08-06T10:30:00Z' },
-  { id: 'tx-102', contestTitle: 'SRC Executive Elections 2026', nominee: 'Yaw Boakye (President)', votes: 20, amount: 20, channel: 'Telecel Cash', phone: '050****889', status: 'SUCCESS', timestamp: '2026-08-06T11:15:00Z' },
-];
-
-const initialContestants = [
-  { id: 'con-1', eventId: '1', eventTitle: 'Ghana Music Awards UK', name: 'Sarkodie', category: 'Artist of the Year', votes: 5400, flagged: false },
-  { id: 'con-2', eventId: '1', eventTitle: 'Ghana Music Awards UK', name: 'Black Sherif', category: 'Artist of the Year', votes: 4800, flagged: false },
-  { id: 'con-3', eventId: '2', eventTitle: 'SRC Executive Elections 2026', name: 'Controversial Candidate X', category: 'Presidential', votes: 120, flagged: true },
+  { id: 'pay-1', userId: 'org-1', organizerName: 'UG Campus Council', eventTitle: 'SRC Executive Elections 2026', amount: 8455, paymentMethod: 'Mobile Money', momoNetwork: 'MTN MoMo', bankOrNetworkName: 'MTN MoMo', accountNumber: '0241112233', accountName: 'UG Campus Election Board', status: 'PENDING', createdAt: '2026-08-04T12:00:00Z' },
 ];
 
 export default function AdminPage({
@@ -87,7 +75,7 @@ export default function AdminPage({
   contests: propsContests,
   onUpdateContests,
 }: AdminPageProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'organizers' | 'events' | 'transactions' | 'contestants' | 'payouts' | 'gateway' | 'growth'>('overview');
+  const [activeTab, setActiveTab] = useState<'organizers' | 'events' | 'payouts' | 'growth'>('organizers');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Local Organizers State with Prop Synchronization
@@ -128,8 +116,7 @@ export default function AdminPage({
         organizer: c.organizer,
         isOngoing: c.isLive,
         totalVotes: c.totalVotes,
-        votePrice: c.votePrice ?? 1,
-        revenue: c.totalVotes * (c.votePrice ?? 1),
+        revenue: c.totalVotes * c.votePrice,
         endDate: c.endDate
       }));
     }
@@ -144,7 +131,6 @@ export default function AdminPage({
             organizer: c.organizer,
             isOngoing: c.isLive ?? true,
             totalVotes: c.totalVotes ?? 0,
-            votePrice: c.votePrice ?? 1,
             revenue: (c.totalVotes ?? 0) * (c.votePrice ?? 1),
             endDate: c.endDate || ''
           }));
@@ -154,34 +140,6 @@ export default function AdminPage({
       }
     }
     return initialEvents;
-  });
-
-  // Transactions Audit Trail State
-  const [transactions, setTransactions] = useState<any[]>(() => {
-    const saved = localStorage.getItem('voterightgh_transactions_audit');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return initialTransactions;
-  });
-
-  // Contestants Moderation State
-  const [contestants, setContestants] = useState<any[]>(() => {
-    const saved = localStorage.getItem('voterightgh_admin_contestants');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return initialContestants;
   });
 
   // Payouts State
@@ -197,11 +155,6 @@ export default function AdminPage({
     }
     return initialPayouts;
   });
-
-  // SMS Gateway Settings State
-  const [smsBalance, setSmsBalance] = useState(14250);
-  const [smsGatewayProvider, setSmsGatewayProvider] = useState('Hubtel Ghana API');
-  const [autoSmsReceipts, setAutoSmsReceipts] = useState(true);
 
   // Modal Control for Manual Add Organizer
   const [internalShowManualAdd, setInternalShowManualAdd] = useState(false);
@@ -238,27 +191,24 @@ export default function AdminPage({
     }, 4000);
   };
 
-  // Sync Payouts & Transactions from localStorage
+  // Sync Payouts from localStorage
   useEffect(() => {
-    const syncLocalStorage = () => {
-      const savedPayouts = localStorage.getItem('voterightgh_payout_requests');
-      if (savedPayouts) {
+    const syncPayouts = () => {
+      const saved = localStorage.getItem('voterightgh_payout_requests');
+      if (saved) {
         try {
-          const parsed = JSON.parse(savedPayouts);
-          if (Array.isArray(parsed)) setPayouts(parsed);
-        } catch (e) {}
-      }
-      const savedTx = localStorage.getItem('voterightgh_transactions_audit');
-      if (savedTx) {
-        try {
-          const parsed = JSON.parse(savedTx);
-          if (Array.isArray(parsed)) setTransactions(parsed);
-        } catch (e) {}
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPayouts(parsed);
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
     };
-    syncLocalStorage();
-    window.addEventListener('storage', syncLocalStorage);
-    return () => window.removeEventListener('storage', syncLocalStorage);
+    syncPayouts();
+    window.addEventListener('storage', syncPayouts);
+    return () => window.removeEventListener('storage', syncPayouts);
   }, []);
 
   // Sync Expired Events
@@ -292,39 +242,6 @@ export default function AdminPage({
     showToast('⚡ Event voting status updated!');
   };
 
-  // Handle Event Deletion
-  const handleDeleteEvent = (eventId: string) => {
-    if (window.confirm("Are you sure you want to delete this event? It will be permanently removed from the homepage and admin lists.")) {
-      const updatedEvents = events.filter(ev => ev.id !== eventId);
-      setEvents(updatedEvents);
-
-      if (propsContests && onUpdateContests) {
-        const updatedContests = propsContests.filter(c => c.id !== eventId);
-        onUpdateContests(updatedContests);
-      }
-
-      localStorage.setItem('voterightgh_contests', JSON.stringify(updatedEvents));
-      showToast('🗑️ Event successfully deleted and removed from homepage.');
-    }
-  };
-
-  // Handle Contestant Moderation Actions
-  const handleToggleFlagContestant = (contestantId: string) => {
-    const updated = contestants.map(c => c.id === contestantId ? { ...c, flagged: !c.flagged } : c);
-    setContestants(updated);
-    localStorage.setItem('voterightgh_admin_contestants', JSON.stringify(updated));
-    showToast('⚠️ Contestant flag status updated.');
-  };
-
-  const handleDeleteContestant = (contestantId: string) => {
-    if (window.confirm("Are you sure you want to disqualify and remove this nominee?")) {
-      const updated = contestants.filter(c => c.id !== contestantId);
-      setContestants(updated);
-      localStorage.setItem('voterightgh_admin_contestants', JSON.stringify(updated));
-      showToast('🗑️ Nominee disqualified and removed.');
-    }
-  };
-
   // Handle Manual Add Submission
   const handleManualAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,6 +258,7 @@ export default function AdminPage({
       return;
     }
 
+    // Call prop handler if available
     if (propsHandleManualCreate) {
       const res = propsHandleManualCreate({
         fullName: manualFullName,
@@ -360,6 +278,7 @@ export default function AdminPage({
 
       showToast(`✅ ${res.message}`);
     } else {
+      // Local fallback provision logic (upsert + elevate role to organizer)
       const existingOrgIndex = localOrganizers.findIndex(o => o.email.toLowerCase() === cleanEmail);
       let newOrgProfile: OrganizerProfile;
       let updatedOrganizers = [...localOrganizers];
@@ -398,6 +317,7 @@ export default function AdminPage({
 
       updateOrganizersList(updatedOrganizers);
 
+      // Provision / elevate in voterightgh_users_auth
       let usersAuth: any[] = [];
       try {
         usersAuth = JSON.parse(localStorage.getItem('voterightgh_users_auth') || '[]');
@@ -416,7 +336,7 @@ export default function AdminPage({
         fullName: newOrgProfile.fullName,
         phone: newOrgProfile.phone,
         agency: newOrgProfile.agency,
-        role: 'organizer',
+        role: 'organizer', // Dynamically elevate to organizer
         status: newOrgProfile.status,
         isVerified: newOrgProfile.isVerified,
       };
@@ -432,9 +352,11 @@ export default function AdminPage({
       }
 
       localStorage.setItem('voterightgh_users_auth', JSON.stringify(usersAuth));
-      showToast(`✅ Organizer "${newOrgProfile.fullName}" provisioned successfully!`);
+
+      showToast(`✅ Organizer "${newOrgProfile.fullName}" provisioned successfully with active login credentials!`);
     }
 
+    // Reset Form & Close
     setManualFullName('');
     setManualEmail('');
     setManualPhone('');
@@ -446,6 +368,7 @@ export default function AdminPage({
     setShowManualAddModal(false);
   };
 
+  // Organizer Status Management
   const handleOrganizerStatusChange = (id: string, newStatus: 'approved' | 'rejected') => {
     const updated = localOrganizers.map(org => {
       if (org.id === id) {
@@ -459,11 +382,12 @@ export default function AdminPage({
     });
 
     updateOrganizersList(updated);
+
     const target = localOrganizers.find(o => o.id === id);
     if (newStatus === 'approved') {
-      showToast(`✅ Organizer "${target?.fullName || target?.email}" APPROVED & Verified!`);
+      showToast(`✅ Organizer "${target?.fullName || target?.email}" APPROVED & Verified! Account unlocked.`);
     } else {
-      showToast(`❌ Organizer status set to REJECTED.`);
+      showToast(`❌ Organizer "${target?.fullName || target?.email}" status set to REJECTED.`);
     }
   };
 
@@ -495,25 +419,23 @@ export default function AdminPage({
 
     const req = payouts.find(p => p.id === id);
     if (newStatus === 'APPROVED') {
-      showToast(`✅ Payout of GHS ${req?.amount?.toLocaleString() || ''} APPROVED & DISBURSED!`);
+      showToast(`✅ Payout of GHS ${req?.amount?.toLocaleString() || ''} to ${req?.organizerName || req?.organizer || 'Organizer'} APPROVED & DISBURSED!`);
     } else {
       showToast(`❌ Payout request rejected.`);
     }
   };
 
-  // Calculations for Overview Metrics
-  const totalPlatformRevenue = events.reduce((acc, ev) => acc + (ev.revenue || (ev.totalVotes * (ev.votePrice || 1))), 0);
-  const totalVotesCast = events.reduce((acc, ev) => acc + (ev.totalVotes || 0), 0);
-  const pendingPayoutsCount = payouts.filter(p => p.status === 'PENDING' || p.status === 'pending').length;
-
+  // Filtered Organizers for Table
   const filteredOrganizers = localOrganizers.filter(org => {
     const query = searchQuery.toLowerCase();
     const name = org.fullName || org.agency || '';
     const email = org.email || '';
     const phone = org.phone || '';
+    const agency = org.agency || '';
     return name.toLowerCase().includes(query) || 
            email.toLowerCase().includes(query) || 
-           phone.toLowerCase().includes(query);
+           phone.toLowerCase().includes(query) ||
+           agency.toLowerCase().includes(query);
   });
 
   return (
@@ -542,7 +464,7 @@ export default function AdminPage({
           <h1 className="text-xl sm:text-2xl font-black text-amber-400 flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-amber-400" /> VoteRight GH — Secret Admin Command Center
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">Platform oversight, live audits, organizer compliance & gateway tracking</p>
+          <p className="text-xs text-slate-400 mt-0.5">Manage platform organizers, review verification queues, control event status & payouts</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -569,21 +491,17 @@ export default function AdminPage({
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-700 space-x-2 mb-8 overflow-x-auto">
           {[
-            { id: 'overview', label: 'Analytics Overview', icon: BarChart3 },
-            { id: 'organizers', label: `Organizers (${localOrganizers.length})`, icon: Users },
-            { id: 'events', label: `Events & Status (${events.length})`, icon: Calendar },
-            { id: 'transactions', label: `Transaction Audit (${transactions.length})`, icon: Receipt },
-            { id: 'contestants', label: `Contestant Moderation`, icon: Flag },
-            { id: 'payouts', label: `Payouts (${pendingPayoutsCount})`, icon: DollarSign },
-            { id: 'gateway', label: `SMS Gateway`, icon: MessageSquare },
-            { id: 'growth', label: 'Settings & Broadcast', icon: Send }
+            { id: 'organizers', label: `Registered Organizers (${localOrganizers.length})`, icon: Users },
+            { id: 'events', label: `Events & Voting Status (${events.length})`, icon: Calendar },
+            { id: 'payouts', label: `MoMo Payout Requests (${payouts.filter(p => p.status === 'PENDING').length})`, icon: DollarSign },
+            { id: 'growth', label: 'Platform Settings & Broadcast', icon: Send }
           ].map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-3 font-bold text-xs sm:text-sm rounded-t-xl transition border-b-2 cursor-pointer shrink-0 ${
+                className={`flex items-center gap-2 px-5 py-3 font-bold text-xs sm:text-sm rounded-t-xl transition border-b-2 cursor-pointer shrink-0 ${
                   activeTab === tab.id
                     ? 'border-amber-400 text-amber-400 bg-slate-800'
                     : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -598,101 +516,6 @@ export default function AdminPage({
 
         {/* Active Tab Content with Animation */}
         <AnimatePresence mode="wait">
-          
-          {/* TAB 1: GLOBAL REVENUE & ANALYTICS OVERVIEW */}
-          {activeTab === 'overview' && (
-            <motion.div 
-              key="overview"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg space-y-2">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <span>Total Revenue</span>
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="text-2xl font-black text-emerald-400 font-mono">
-                    GHS {totalPlatformRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-[11px] text-slate-400">Platform-wide gross vote sales</div>
-                </div>
-
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg space-y-2">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <span>Total Votes Cast</span>
-                    <BarChart3 className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div className="text-2xl font-black text-amber-400 font-mono">
-                    {totalVotesCast.toLocaleString()}
-                  </div>
-                  <div className="text-[11px] text-slate-400">Successful ballots recorded</div>
-                </div>
-
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg space-y-2">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <span>Active Organizers</span>
-                    <Users className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <div className="text-2xl font-black text-blue-400 font-mono">
-                    {localOrganizers.length}
-                  </div>
-                  <div className="text-[11px] text-slate-400">Registered event hosts</div>
-                </div>
-
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg space-y-2">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <span>Pending Payouts</span>
-                    <DollarSign className="w-4 h-4 text-rose-400" />
-                  </div>
-                  <div className="text-2xl font-black text-rose-400 font-mono">
-                    {pendingPayoutsCount} Requests
-                  </div>
-                  <div className="text-[11px] text-slate-400">Awaiting MoMo disbursement</div>
-                </div>
-              </div>
-
-              {/* Top Performing Events Breakdown */}
-              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
-                <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-amber-400" /> Top Performing Events Ranking
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900/80 text-[11px] uppercase text-slate-400 border-b border-slate-700">
-                      <tr>
-                        <th className="p-3">Event Title</th>
-                        <th className="p-3">Organizer</th>
-                        <th className="p-3">Total Votes</th>
-                        <th className="p-3">Revenue Generated</th>
-                        <th className="p-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-700/60">
-                      {events.map((ev) => (
-                        <tr key={ev.id} className="hover:bg-slate-700/20">
-                          <td className="p-3 font-bold text-white">{ev.title}</td>
-                          <td className="p-3 text-slate-300">{ev.organizer}</td>
-                          <td className="p-3 font-mono text-amber-400 font-bold">{ev.totalVotes?.toLocaleString()}</td>
-                          <td className="p-3 font-mono text-emerald-400 font-bold">GHS {(ev.revenue || (ev.totalVotes * (ev.votePrice || 1))).toLocaleString()}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${ev.isOngoing ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
-                              {ev.isOngoing ? 'LIVE 🟢' : 'ENDED 🔴'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* TAB 2: ORGANIZERS */}
           {activeTab === 'organizers' && (
             <motion.div 
               key="organizers"
@@ -726,7 +549,7 @@ export default function AdminPage({
                 <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
                 <input 
                   type="text"
-                  placeholder="Search organizers by name, email, or phone number..."
+                  placeholder="Search organizers by name, email, phone number, or agency..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 focus:border-amber-400 rounded-2xl pl-11 pr-4 py-3 text-xs text-white placeholder-slate-400 focus:outline-none transition-colors shadow-inner"
@@ -740,10 +563,10 @@ export default function AdminPage({
                     <thead className="bg-slate-900/90 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-700">
                       <tr>
                         <th className="p-4">Organizer Name & Email</th>
-                        <th className="p-4">Agency / Event</th>
+                        <th className="p-4">Organization / Agency</th>
                         <th className="p-4">Phone Number</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Actions</th>
+                        <th className="p-4">Account Status</th>
+                        <th className="p-4 text-right">Admin Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/60">
@@ -754,13 +577,19 @@ export default function AdminPage({
                           </td>
                         </tr>
                       ) : (
-                        filteredOrganizers.map((org) => {
+                        filteredOrganizers.map((org, index) => {
                           const isApproved = org.status === 'approved' || org.isVerified;
                           const isRejected = org.status === 'rejected';
                           const isPending = !isApproved && !isRejected;
 
                           return (
-                            <tr key={org.id} className="hover:bg-slate-700/30 transition-colors">
+                            <motion.tr 
+                              key={org.id} 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.15, delay: index * 0.03 }}
+                              className="hover:bg-slate-700/30 transition-colors"
+                            >
                               <td className="p-4">
                                 <div className="font-extrabold text-white text-sm">{org.fullName || 'Organizer User'}</div>
                                 <div className="text-slate-400 font-mono text-[11px] flex items-center gap-1.5 mt-0.5">
@@ -775,26 +604,33 @@ export default function AdminPage({
                                 {org.phone || 'N/A'}
                               </td>
                               <td className="p-4">
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                  isApproved ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                                  isRejected ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 
-                                  'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                }`}>
-                                  {isApproved ? 'APPROVED 🟢' : isRejected ? 'REJECTED 🔴' : 'PENDING 🟡'}
-                                </span>
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                    isApproved ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                    isRejected ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 
+                                    'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  }`}>
+                                    {isApproved ? 'APPROVED 🟢' : isRejected ? 'REJECTED 🔴' : 'PENDING REVIEW 🟡'}
+                                  </span>
+                                  {org.isBlocked && (
+                                    <span className="bg-red-600 text-white font-black text-[9px] px-2 py-0.5 rounded uppercase">
+                                      BLOCKED
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-4 text-right space-x-2">
                                 {isPending ? (
                                   <>
                                     <button 
                                       onClick={() => handleOrganizerStatusChange(org.id, 'approved')}
-                                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black transition cursor-pointer"
+                                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black transition cursor-pointer active:scale-95"
                                     >
                                       Approve
                                     </button>
                                     <button 
                                       onClick={() => handleOrganizerStatusChange(org.id, 'rejected')}
-                                      className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                                      className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
                                     >
                                       Reject
                                     </button>
@@ -802,18 +638,22 @@ export default function AdminPage({
                                 ) : (
                                   <button 
                                     onClick={() => handleOrganizerStatusChange(org.id, isApproved ? 'rejected' : 'approved')}
-                                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-[11px] font-semibold transition cursor-pointer active:scale-95"
                                   >
                                     Toggle Status
                                   </button>
                                 )}
+
                                 <button 
                                   onClick={() => handleToggleBlockOrganizer(org.id)}
-                                  title="Block/Unblock"
-                                  className="p-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg transition cursor-pointer"
+                                  title={org.isBlocked ? 'Unblock Account' : 'Block Access'}
+                                  className={`p-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                    org.isBlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                                  }`}
                                 >
                                   <ShieldAlert className="w-4 h-4 inline" />
                                 </button>
+
                                 <button 
                                   onClick={() => handleDeleteOrganizer(org.id)}
                                   title="Delete Profile"
@@ -822,7 +662,7 @@ export default function AdminPage({
                                   <Trash2 className="w-4 h-4 inline" />
                                 </button>
                               </td>
-                            </tr>
+                            </motion.tr>
                           );
                         })
                       )}
@@ -833,7 +673,7 @@ export default function AdminPage({
             </motion.div>
           )}
 
-          {/* TAB 3: EVENTS & VOTING STATUS TOGGLE + DELETE EVENT */}
+          {/* TAB 2: EVENTS & VOTING STATUS TOGGLE */}
           {activeTab === 'events' && (
             <motion.div 
               key="events"
@@ -846,185 +686,70 @@ export default function AdminPage({
               <div className="flex justify-between items-center flex-wrap gap-4 bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
                 <div>
                   <h2 className="text-xl font-black text-white">Active & Archived Events Override</h2>
-                  <p className="text-xs text-slate-400 mt-1">One-click voting status toggle or delete events to remove them instantly from public view.</p>
+                  <p className="text-xs text-slate-400 mt-1">One-click voting status toggle. Flipping status to ENDED immediately displays the "VOTING HAS ENDED" overlay on public cards.</p>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                {events.length === 0 ? (
-                  <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center text-slate-400 text-xs">
-                    No active events found.
-                  </div>
-                ) : (
-                  events.map((ev) => (
-                    <div key={ev.id} className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-md">
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-black text-white">{ev.title}</h3>
-                        <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
-                          <span>Organizer: <span className="text-slate-200 font-semibold">{ev.organizer}</span></span>
-                          <span>•</span>
-                          <span>Votes: <span className="text-amber-400 font-bold">{ev.totalVotes?.toLocaleString() || 0}</span></span>
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-3 bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700">
-                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Status:</span>
-                          <button onClick={() => toggleVotingStatus(ev.id)} className="flex items-center gap-2 transition cursor-pointer">
-                            {ev.isOngoing ? (
-                              <>
-                                <ToggleRight className="w-8 h-8 text-emerald-400" />
-                                <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg">ONGOING 🟢</span>
-                              </>
-                            ) : (
-                              <>
-                                <ToggleLeft className="w-8 h-8 text-rose-400" />
-                                <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg">ENDED 🔴</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          className="px-4 py-3 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border border-rose-500/30"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete Event</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* TAB 4: TRANSACTION AUDIT TRAIL LOGS */}
-          {activeTab === 'transactions' && (
-            <motion.div 
-              key="transactions"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-amber-400" /> Live Vote Transaction Ledger & Audit Trail
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">Every incoming vote payment processed via Mobile Money and card gateways</p>
-              </div>
-
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900/90 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-700">
-                      <tr>
-                        <th className="p-4">Tx ID / Time</th>
-                        <th className="p-4">Contest & Nominee</th>
-                        <th className="p-4">Channel & Phone</th>
-                        <th className="p-4">Votes & Amount</th>
-                        <th className="p-4">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-700/60">
-                      {transactions.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-400 text-xs">No transactions recorded yet.</td>
-                        </tr>
-                      ) : (
-                        transactions.map((tx) => (
-                          <tr key={tx.id} className="hover:bg-slate-700/30">
-                            <td className="p-4">
-                              <div className="font-mono font-bold text-amber-400">{tx.id}</div>
-                              <div className="text-[10px] text-slate-400">{new Date(tx.timestamp || Date.now()).toLocaleString()}</div>
-                            </td>
-                            <td className="p-4">
-                              <div className="font-extrabold text-white">{tx.contestTitle}</div>
-                              <div className="text-slate-300 text-[11px]">Vote for: <span className="text-amber-300">{tx.nominee}</span></div>
-                            </td>
-                            <td className="p-4 font-mono">
-                              <div className="text-emerald-400 font-bold">{tx.channel}</div>
-                              <div className="text-slate-400 text-[11px]">{tx.phone}</div>
-                            </td>
-                            <td className="p-4">
-                              <div className="font-bold text-white">{tx.votes} Votes</div>
-                              <div className="text-amber-400 font-mono">GHS {tx.amount}</div>
-                            </td>
-                            <td className="p-4">
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                {tx.status || 'SUCCESS'} 🟢
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* TAB 5: CONTESTANT & NOMINEE MODERATION */}
-          {activeTab === 'contestants' && (
-            <motion.div 
-              key="contestants"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
-                  <Flag className="w-5 h-5 text-amber-400" /> Global Contestant & Nominee Moderation
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">Review, flag, or disqualify inappropriate entries across all active event contests</p>
-              </div>
-
-              <div className="grid gap-4">
-                {contestants.map((con) => (
-                  <div key={con.id} className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-md">
+                {events.map((ev, index) => (
+                  <motion.div 
+                    key={ev.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.05 }}
+                    className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-md hover:border-slate-600 transition-colors"
+                  >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-black text-white">{con.name}</h3>
-                        {con.flagged && (
-                          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-black px-2 py-0.5 rounded">
-                            FLAGGED ⚠️
-                          </span>
+                      <h3 className="text-lg font-black text-white">{ev.title}</h3>
+                      <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
+                        <span>Organizer: <span className="text-slate-200 font-semibold">{ev.organizer}</span></span>
+                        <span>•</span>
+                        <span>Total Votes: <span className="text-amber-400 font-bold">{ev.totalVotes?.toLocaleString() || 0}</span></span>
+                        {ev.endDate && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 text-slate-300 font-mono">
+                              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              End: {new Date(ev.endDate).toLocaleString()}
+                            </span>
+                          </>
                         )}
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Event: <span className="text-slate-200 font-semibold">{con.eventTitle}</span> • Category: <span className="text-amber-400">{con.category}</span> • Votes: <span className="font-mono text-white">{con.votes}</span>
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    {/* Voting Status Switch */}
+                    <div className="flex items-center gap-4 bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        Voting Status:
+                      </span>
                       <button 
-                        onClick={() => handleToggleFlagContestant(con.id)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                          con.flagged ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-slate-700 text-slate-300 border-slate-600'
-                        }`}
+                        onClick={() => toggleVotingStatus(ev.id)}
+                        className="flex items-center gap-2 transition cursor-pointer active:scale-95"
                       >
-                        {con.flagged ? 'Unflag Nominee' : 'Flag Nominee'}
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteContestant(con.id)}
-                        className="px-3 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer border border-rose-500/30 flex items-center gap-1"
-                      >
-                        <ShieldX className="w-4 h-4" /> Disqualify
+                        {ev.isOngoing ? (
+                          <>
+                            <ToggleRight className="w-8 h-8 text-emerald-400" />
+                            <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg border border-emerald-500/30">
+                              ONGOING 🟢
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <ToggleLeft className="w-8 h-8 text-rose-400" />
+                            <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg border border-rose-500/30">
+                              ENDED 🔴
+                            </span>
+                          </>
+                        )}
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </motion.div>
           )}
 
-          {/* TAB 6: MOMO PAYOUT APPROVALS */}
+          {/* TAB 3: MOMO PAYOUT APPROVALS */}
           {activeTab === 'payouts' && (
             <motion.div 
               key="payouts"
@@ -1040,124 +765,97 @@ export default function AdminPage({
               </div>
 
               <div className="grid gap-4">
-                {payouts.map((p) => {
+                {payouts.map((p, index) => {
                   const requesterName = p.organizerName || p.organizer || 'Ghana Event Organizer';
-                  const eventName = p.eventTitle || p.contestTitle || 'Voting Event';
+                  const eventName = p.eventTitle || p.contestTitle || 'MISS CAMPUS GHANA 2026';
                   const providerName = p.momoNetwork || p.bankOrNetworkName || p.network || 'MTN MoMo';
                   const isPending = p.status === 'PENDING' || p.status === 'pending';
                   const isApproved = p.status === 'APPROVED' || p.status === 'Paid' || p.status === 'paid' || p.status === 'DISBURSED';
 
                   return (
-                    <div key={p.id} className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-6 shadow-md">
+                    <motion.div 
+                      key={p.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-6 shadow-md hover:border-slate-600 transition-colors"
+                    >
                       <div className="space-y-2 flex-1 min-w-[280px]">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-black text-white text-base">{requesterName}</h3>
-                          <span className="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Organizer</span>
+                          <span className="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                            Organizer
+                          </span>
+                          {p.createdAt && (
+                            <span className="text-xs text-slate-400 font-mono">
+                              • {new Date(p.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
 
                         <div className="text-xs text-amber-400 font-semibold">
                           Event: <span className="text-slate-200 font-medium">{eventName}</span>
                         </div>
 
-                        <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 text-xs font-mono space-y-1 text-slate-200">
-                          <div><span className="text-slate-400">Network:</span> <span className="text-emerald-400 font-bold">{providerName}</span></div>
-                          <div><span className="text-slate-400">Account Number:</span> <span className="text-white font-bold">{p.accountNumber || p.accountNo}</span></div>
-                          <div><span className="text-slate-400">Account Name:</span> <span className="text-white font-bold">{p.accountName || requesterName}</span></div>
+                        <div className="bg-slate-900 p-3 rounded-xl border border-slate-700/80 text-xs font-mono space-y-1 text-slate-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400">Payment Method:</span>
+                            <span className="text-emerald-400 font-bold">{providerName}</span>
+                            <span className="text-slate-400">({p.paymentMethod || 'Mobile Money'})</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Account Number:</span>{' '}
+                            <span className="text-white font-bold">{p.accountNumber || p.accountNo}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Account Name:</span>{' '}
+                            <span className="text-white font-bold">{p.accountName || requesterName}</span>
+                          </div>
                         </div>
 
-                        <div className="text-xl font-black text-emerald-400 font-mono">
-                          GHS {Number(p.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <div className="text-xl font-black text-emerald-400 font-mono pt-1">
+                          GHS {Number(p.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         {isPending ? (
                           <>
-                            <button 
+                            <motion.button 
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.95 }}
                               onClick={() => handleApprovePayout(p.id, 'APPROVED')}
-                              className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black px-5 py-3 rounded-xl text-xs transition cursor-pointer"
+                              className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black px-5 py-3 rounded-xl text-xs transition cursor-pointer flex items-center gap-1.5 shadow-lg"
                             >
-                              Approve & Disburse ⚡
-                            </button>
-                            <button 
+                              <span>Approve & Disburse</span> ⚡
+                            </motion.button>
+                            <motion.button 
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.95 }}
                               onClick={() => handleApprovePayout(p.id, 'REJECTED')}
                               className="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold px-4 py-3 rounded-xl text-xs border border-rose-500/30 transition cursor-pointer"
                             >
                               Reject
-                            </button>
+                            </motion.button>
                           </>
                         ) : (
-                          <span className={`px-4 py-2 text-xs font-bold rounded-xl border ${isApproved ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'}`}>
-                            {isApproved ? 'Approved & Disbursed ✅' : 'Rejected ❌'}
+                          <span className={`px-4 py-2 text-xs font-bold rounded-xl border flex items-center gap-1.5 ${
+                            isApproved
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          }`}>
+                            {isApproved ? 'Approved & Disbursed ✅' : 'Request Rejected ❌'}
                           </span>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
             </motion.div>
           )}
 
-          {/* TAB 7: SMS GATEWAY SETTINGS & TRACKER */}
-          {activeTab === 'gateway' && (
-            <motion.div 
-              key="gateway"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="grid md:grid-cols-2 gap-8"
-            >
-              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4 shadow-lg">
-                <h3 className="text-lg font-black text-amber-400 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-amber-400" /> SMS Credit & API Status
-                </h3>
-                <p className="text-xs text-slate-400">Monitor SMS unit balances for automated voter receipt confirmations and OTP authentications.</p>
-
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-2">
-                  <div className="text-xs text-slate-400">Active Gateway Provider:</div>
-                  <div className="text-white font-bold text-sm">{smsGatewayProvider}</div>
-                  <div className="text-xs text-slate-400 pt-2">Available SMS Units:</div>
-                  <div className="text-2xl font-black text-emerald-400 font-mono">{smsBalance.toLocaleString()} Credits</div>
-                </div>
-
-                <button 
-                  onClick={() => {
-                    setSmsBalance(prev => prev + 5000);
-                    showToast('📱 Added 5,000 SMS units successfully!');
-                  }}
-                  className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black py-2.5 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Top Up SMS Credits (+5,000)
-                </button>
-              </div>
-
-              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4 shadow-lg">
-                <h3 className="text-lg font-black text-amber-400">SMS Gateway Configuration</h3>
-                <p className="text-xs text-slate-400">Configure automated notification triggers.</p>
-
-                <div className="space-y-4 pt-2">
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
-                    <input 
-                      type="checkbox"
-                      checked={autoSmsReceipts}
-                      onChange={(e) => setAutoSmsReceipts(e.target.checked)}
-                      className="w-4 h-4 rounded accent-amber-400"
-                    />
-                    <span className="text-xs font-bold text-slate-200">Automatically dispatch SMS receipt upon successful vote cast</span>
-                  </label>
-
-                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-1">
-                    <div className="text-amber-400 font-bold">Webhook Endpoint Status:</div>
-                    <div>🟢 Active (HTTPS / TLS 1.3 Secure)</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* TAB 8: GROWTH & PLATFORM SETTINGS */}
+          {/* TAB 4: GROWTH & PLATFORM SETTINGS */}
           {activeTab === 'growth' && (
             <motion.div 
               key="growth"
@@ -1169,7 +867,7 @@ export default function AdminPage({
             >
               <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4 shadow-lg">
                 <h3 className="text-lg font-black text-amber-400">VoteRight GH Platform Fee</h3>
-                <p className="text-xs text-slate-400">Adjust percentage commission deducted automatically from voting revenue.</p>
+                <p className="text-xs text-slate-400">Adjust the percentage commission deducted automatically from voting revenue.</p>
                 
                 <div className="flex items-center gap-4">
                   <input 
@@ -1202,7 +900,7 @@ export default function AdminPage({
                       }
                       setBroadcastMessage('');
                     }}
-                    className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black py-2.5 rounded-xl text-xs transition cursor-pointer"
+                    className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black py-2.5 rounded-xl text-xs transition cursor-pointer active:scale-95"
                   >
                     Publish Announcement
                   </button>
@@ -1216,8 +914,8 @@ export default function AdminPage({
               </div>
             </motion.div>
           )}
-
         </AnimatePresence>
+
       </div>
 
       {/* MODAL: ADD ORGANIZER MANUALLY */}
@@ -1379,23 +1077,25 @@ export default function AdminPage({
                   <button 
                     type="button"
                     onClick={() => setShowManualAddModal(false)}
-                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold cursor-pointer transition"
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold cursor-pointer transition active:scale-95"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
                     type="submit"
-                    className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl cursor-pointer shadow-lg shadow-amber-400/20 transition"
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black rounded-xl cursor-pointer shadow-lg shadow-amber-400/20 transition"
                   >
                     Create Organizer Account
-                  </button>
+                  </motion.button>
                 </div>
               </form>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }
-
