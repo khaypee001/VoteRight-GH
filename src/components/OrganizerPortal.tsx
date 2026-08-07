@@ -256,12 +256,30 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     (n) => selectedContest && n.contestId === selectedContest.id
   );
 
+  // Read ticket purchases from localStorage to include ticket revenue dynamically
+  const ticketPurchases = (() => {
+    try {
+      const saved = localStorage.getItem('voterightgh_ticket_purchases');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+
+  const myEventIds = new Set(myContests.map((c) => c.id));
+  const myEventTitles = new Set(myContests.map((c) => (c.title || '').toLowerCase()));
+
+  const totalTicketRevenue = ticketPurchases
+    .filter((tp: any) => myEventIds.has(tp.eventId) || myEventTitles.has((tp.eventTitle || '').toLowerCase()))
+    .reduce((sum: number, tp: any) => sum + (tp.totalPriceGHS || tp.totalPrice || 0), 0);
+
   // Calculation of Quick Balance Card Stats
   const totalVotesAcrossEvents = myContests.reduce((acc, c) => acc + (c.totalVotes || 0), 0);
-  const grossEarnings = myContests.reduce(
-    (acc, c) => acc + (c.totalVotes || 0) * (c.votePrice || 1),
+  const voteRevenue = myContests.reduce(
+    (acc, c) => acc + (c.totalVotes || 0) * (c.votePrice || 1.5),
     0
   );
+  const grossEarnings = voteRevenue + totalTicketRevenue;
   const platformFee = grossEarnings * 0.15;
   const netEarnings = grossEarnings - platformFee;
 
@@ -289,6 +307,23 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   useEffect(() => {
     localStorage.setItem('voterightgh_payout_requests', JSON.stringify(payoutRequestsHistory));
   }, [payoutRequestsHistory]);
+
+  useEffect(() => {
+    const syncPayouts = () => {
+      const saved = localStorage.getItem('voterightgh_payout_requests');
+      if (saved) {
+        try {
+          setPayoutRequestsHistory(JSON.parse(saved));
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('storage', syncPayouts);
+    window.addEventListener('voteright_payout_update', syncPayouts);
+    return () => {
+      window.removeEventListener('storage', syncPayouts);
+      window.removeEventListener('voteright_payout_update', syncPayouts);
+    };
+  }, []);
 
   const totalPaidOut = payoutRequestsHistory
     .filter((p) => p.status === 'APPROVED' || p.status === 'Paid' || p.status === 'DISBURSED')
@@ -741,7 +776,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     showToast(`🎉 Event "${newContestObj.title}" published successfully!`);
   };
 
-  // Payout Request Submission via Paystack Transfer API
+  // Payout Request Submission to Admin Dashboard & Main Paystack Account
   const handlePayoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPayoutError('');
@@ -756,7 +791,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
     if (requestedAmount > availableBalance) {
       setPayoutError(
-        `Requested amount (${formatPrice(requestedAmount, currency)}) exceeds your available subaccount balance (${formatPrice(availableBalance, currency)}).`
+        `Requested amount (${formatPrice(requestedAmount, currency)}) exceeds your available balance (${formatPrice(availableBalance, currency)}).`
       );
       return;
     }
@@ -772,53 +807,42 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     }
 
     setIsSubmittingPayout(true);
-    setIsTransferModalOpen(true);
-    setActiveTransferStep(1);
-    setTransferStepLabel('Validating Paystack Subaccount & Balance...');
-    setCompletedPayoutRecord(null);
 
     const eventTitle = myContests.find(c => c.id === selectedPayoutEventId)?.title || selectedContest?.title || 'VoteRight Revenue Pool';
 
-    // 1. Create Paystack Transfer Recipient Code
-    const recipientRes = await createPaystackTransferRecipient({
-      accountNumber: accountNumber,
-      bankOrNetwork: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
-      accountName: accountName
-    });
-
-    // 2. Initiate Paystack Automated Transfer
-    const transferRes = await initiatePaystackTransfer({
-      subaccountCode: subaccount.subaccountCode,
-      recipientCode: recipientRes.recipientCode,
-      amountGHS: requestedAmount,
-      reason: `On-Demand Payout - ${eventTitle}`,
-      organizerId: profile.id,
+    const newRequest: PayoutRequest = {
+      id: `payout-${Date.now()}`,
+      userId: profile.id,
+      organizerName: accountName.trim() || profile.fullName,
+      contestId: selectedPayoutEventId || myContests[0]?.id || 'contest-1',
       eventTitle: eventTitle,
-      accountName: accountName,
-      accountNumber: accountNumber,
+      amount: requestedAmount,
+      paymentMethod: payoutMethod,
       momoNetwork: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
-      onProgress: (step, label) => {
-        setActiveTransferStep(step);
-        setTransferStepLabel(label);
-      }
-    });
+      bankOrNetworkName: payoutMethod === 'Mobile Money' ? momoNetwork : bankName,
+      accountNumber: accountNumber.trim(),
+      accountName: accountName.trim(),
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+      payoutType: 'manual',
+    };
+
+    // Simulate short network delay
+    await new Promise((res) => setTimeout(res, 600));
 
     setIsSubmittingPayout(false);
 
-    if (transferRes.success && transferRes.payoutRequest) {
-      const updatedRequests = [transferRes.payoutRequest, ...payoutRequestsHistory];
-      setPayoutRequestsHistory(updatedRequests);
-      localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updatedRequests));
+    const updatedRequests = [newRequest, ...payoutRequestsHistory];
+    setPayoutRequestsHistory(updatedRequests);
+    localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updatedRequests));
+    window.dispatchEvent(new Event('voteright_payout_update'));
+    window.dispatchEvent(new Event('storage'));
 
-      setCompletedPayoutRecord(transferRes.payoutRequest);
-      setPayoutSuccess(
-        `⚡ On-Demand Payout of GHS ${requestedAmount.toFixed(2)} disbursed to ${accountName} (${accountNumber}) via Paystack Transfer API!`
-      );
-      setPayoutAmount('');
-      showToast(`🎉 GHS ${requestedAmount.toFixed(2)} transferred to your ${payoutMethod === 'Mobile Money' ? momoNetwork : bankName} wallet!`);
-    } else {
-      setPayoutError(transferRes.error || 'Paystack Transfer API failed. Please try again.');
-    }
+    setPayoutSuccess(
+      `🎉 Payout request of GHS ${requestedAmount.toFixed(2)} submitted! Pending admin review and Paystack main account disbursement.`
+    );
+    setPayoutAmount('');
+    showToast(`🎉 Payout request for GHS ${requestedAmount.toFixed(2)} submitted to Admin!`);
   };
 
   // Export Leaderboard / Voter Logs to CSV
@@ -2233,7 +2257,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
               </div>
             )}
 
-            {/* TAB 6: PAYOUT REQUEST MODULE & PAYSTACK SUBACCOUNT WORKFLOW */}
+            {/* TAB 6: PAYOUT REQUEST MODULE & MAIN PLATFORM PAYSTACK WORKFLOW */}
             {activeTab === 'payouts' && (
               <div className="space-y-6">
                 <motion.div 
@@ -2246,15 +2270,15 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                         <Zap className="w-3 h-3 text-emerald-400" />
-                        <span>Paystack Subaccount Active</span>
+                        <span>Main Platform Paystack Escrow Active</span>
                       </span>
-                      <span className="text-slate-500 text-xs font-mono">{subaccount.subaccountCode}</span>
+                      <span className="text-slate-500 text-xs font-mono">Platform Escrow</span>
                     </div>
                     <h4 className="text-xl font-black text-white tracking-tight mt-1">
-                      Organizer Revenue & Paystack On-Demand Payouts
+                      Organizer Revenue & Paystack Payout Requests
                     </h4>
                     <p className="text-xs text-slate-400">
-                      Funds collected from votes flow directly into your dedicated Paystack Subaccount and disburse instantly to your mobile money or bank account on request.
+                      All vote and ticket payments flow into the main platform Paystack account. Track your accumulated net revenue in real-time and submit payout requests directly to your Mobile Money or Bank Account.
                     </p>
                   </div>
 
@@ -2264,12 +2288,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{showSubaccountEdit ? 'Close Subaccount Config' : 'Edit Settlement Bank'}</span>
+                      <span>{showSubaccountEdit ? 'Close Details' : 'Default MoMo Details'}</span>
                     </button>
                   </div>
                 </motion.div>
 
-                {/* Inline Paystack Subaccount Settlement Editor */}
+                {/* Inline Saved Default MoMo Details Editor */}
                 {showSubaccountEdit && (
                   <motion.form 
                     initial={{ opacity: 0, height: 0 }}
@@ -2281,9 +2305,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-amber-400" />
-                        <h5 className="font-extrabold text-sm text-white">Configure Paystack Subaccount Settlement Account</h5>
+                        <h5 className="font-extrabold text-sm text-white">Default Payout Settlement Account</h5>
                       </div>
-                      <span className="text-[11px] text-amber-400 font-mono font-bold">15% Platform Split Active</span>
+                      <span className="text-[11px] text-amber-400 font-mono font-bold">85% Net Split Active</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -2341,13 +2365,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                         type="submit"
                         className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-5 py-2 rounded-xl transition-all shadow"
                       >
-                        Save Subaccount Settings
+                        Save Settlement Account
                       </button>
                     </div>
                   </motion.form>
                 )}
 
-                {/* Subaccount Balance & Metric Cards */}
+                {/* Balance & Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <motion.div 
                     initial={{ opacity: 0, x: -30 }}
@@ -2358,7 +2382,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   >
                     <span className="text-slate-400 text-[11px] font-bold block">Gross Revenue Generated</span>
                     <div className="text-2xl font-black text-white mt-1">{formatPrice(grossEarnings, currency)}</div>
-                    <span className="text-[10px] text-slate-500 block mt-1">From all active voting contests</span>
+                    <span className="text-[10px] text-slate-500 block mt-1">From all votes and ticket purchases</span>
                   </motion.div>
 
                   <motion.div 
@@ -2370,7 +2394,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   >
                     <span className="text-slate-400 text-[11px] font-bold block">Platform Fee (15%)</span>
                     <div className="text-2xl font-black text-rose-400 mt-1">-{formatPrice(platformFee, currency)}</div>
-                    <span className="text-[10px] text-slate-500 block mt-1">Retained automatically by Paystack</span>
+                    <span className="text-[10px] text-slate-500 block mt-1">Retained by platform for processing</span>
                   </motion.div>
 
                   <motion.div 
@@ -2381,7 +2405,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 bg-emerald-950/20 relative overflow-hidden"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-emerald-400 text-[11px] font-extrabold block">Paystack Subaccount Balance</span>
+                      <span className="text-emerald-400 text-[11px] font-extrabold block">Available Balance</span>
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
                     <div className="text-3xl font-black text-emerald-300 mt-1">{formatPrice(availableBalance, currency)}</div>
@@ -2397,13 +2421,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   >
                     <span className="text-slate-400 text-[11px] font-bold block">Total Disbursed To Date</span>
                     <div className="text-2xl font-black text-amber-400 mt-1">{formatPrice(totalPaidOut, currency)}</div>
-                    <span className="text-[10px] text-slate-500 block mt-1">Disbursed via Paystack Transfer API</span>
+                    <span className="text-[10px] text-slate-500 block mt-1">Disbursed via Main Paystack Account</span>
                   </motion.div>
                 </div>
 
-                {/* Main 2-Column Split: On-Demand Payout Request Form & Paystack Info */}
+                {/* Main 2-Column Split: Payout Request Form & Architecture Info */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: On-Demand Payout Form (Slide In Left) */}
+                  {/* Left Column: Payout Request Form */}
                   <motion.div 
                     initial={{ opacity: 0, x: -50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -2416,13 +2440,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                           <Zap className="w-4 h-4" />
                         </div>
                         <div>
-                          <h5 className="font-extrabold text-white text-sm">Request On-Demand Payout</h5>
-                          <p className="text-[11px] text-slate-400">Initiate automated transfer from subaccount to your MoMo wallet</p>
+                          <h5 className="font-extrabold text-white text-sm">Request Payout</h5>
+                          <p className="text-[11px] text-slate-400">Submit withdrawal request to Admin for Paystack disbursement</p>
                         </div>
                       </div>
 
                       <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg">
-                        API v2.0
+                        Escrow Payout
                       </span>
                     </div>
 
@@ -2443,7 +2467,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     <form onSubmit={handlePayoutSubmit} className="space-y-4">
                       {/* Select Event */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue Subaccount</label>
+                        <label className="text-xs font-bold text-slate-300 block mb-1">Select Event Revenue Source</label>
                         <select
                           value={selectedPayoutEventId}
                           onChange={(e) => setSelectedPayoutEventId(e.target.value)}
@@ -2458,14 +2482,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Payment Method */}
                         <div>
-                          <label className="text-xs font-bold text-slate-300 block mb-1">Payout Gateway Method</label>
+                          <label className="text-xs font-bold text-slate-300 block mb-1">Payout Method</label>
                           <select
                             value={payoutMethod}
                             onChange={(e) => setPayoutMethod(e.target.value as any)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
                           >
-                            <option value="Mobile Money">Mobile Money Instant Transfer</option>
-                            <option value="Bank Transfer">Direct Bank Wire</option>
+                            <option value="Mobile Money">Mobile Money (MTN, Telecel, AT)</option>
+                            <option value="Bank Transfer">Bank Wire Transfer</option>
                           </select>
                         </div>
 
@@ -2505,7 +2529,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                         {/* MoMo / Account Number */}
                         <div>
                           <label className="text-xs font-bold text-slate-300 block mb-1">
-                            {payoutMethod === 'Mobile Money' ? 'MoMo Wallet Number' : 'Account Number'}
+                            {payoutMethod === 'Mobile Money' ? 'MoMo Number' : 'Account Number'}
                           </label>
                           <input
                             type="text"
@@ -2585,12 +2609,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                         {isSubmittingPayout ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin text-white" />
-                            <span>Processing Paystack Transfer API...</span>
+                            <span>Submitting Payout Request...</span>
                           </>
                         ) : (
                           <>
                             <Zap className="w-4 h-4 text-amber-300" />
-                            <span>Request Payout (Paystack Transfer API)</span>
+                            <span>Submit Payout Request</span>
                             <ArrowRight className="w-4 h-4 ml-1" />
                           </>
                         )}
@@ -2598,7 +2622,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     </form>
                   </motion.div>
 
-                  {/* Right Column: Subaccount Architecture Details (Slide In Right) */}
+                  {/* Right Column: Main Paystack Central Escrow Info */}
                   <motion.div 
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -2610,64 +2634,58 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-amber-400" />
                           <h5 className="font-extrabold text-white text-xs uppercase tracking-wider">
-                            Subaccount Details
+                            Central Escrow Account
                           </h5>
                         </div>
                         <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                          Active
+                          Main Account
                         </span>
                       </div>
 
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Subaccount Code</span>
-                          <button
-                            onClick={() => handleCopyCode(subaccount.subaccountCode, 'Subaccount Code')}
-                            className="font-mono text-amber-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{subaccount.subaccountCode}</span>
-                            <Copy className="w-3 h-3 text-slate-500" />
-                          </button>
+                          <span className="text-slate-400 font-bold">Paystack Master Account</span>
+                          <span className="font-mono text-amber-300 font-bold">Main Platform Gateway</span>
                         </div>
 
                         <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Primary Settlement Network</span>
-                          <span className="font-bold text-white">{subaccount.settlementBank}</span>
+                          <span className="text-slate-400 font-bold">Organizer Net Revenue</span>
+                          <span className="font-bold text-white">85% of Gross Revenue</span>
                         </div>
 
                         <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Target Wallet / MoMo</span>
-                          <span className="font-mono text-emerald-400 font-bold">{subaccount.accountNumber}</span>
+                          <span className="text-slate-400 font-bold">Platform Processing Fee</span>
+                          <span className="font-mono text-emerald-400 font-bold">15%</span>
                         </div>
 
                         <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                          <span className="text-slate-400 font-bold">Platform Split Rule</span>
-                          <span className="font-bold text-white">85% Organizer / 15% Platform</span>
+                          <span className="text-slate-400 font-bold">Disbursement Mechanism</span>
+                          <span className="font-bold text-white">Admin Approval & MoMo/Bank Wire</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* How On-Demand Subaccount Works */}
+                    {/* How Payout Workflow Works */}
                     <div className="bg-gradient-to-br from-blue-950/40 via-slate-950 to-indigo-950/40 border border-blue-500/30 rounded-2xl p-5 space-y-3 shadow-xl">
                       <div className="flex items-center gap-2 text-blue-400 font-extrabold text-xs">
                         <ShieldCheck className="w-4 h-4 text-blue-400" />
-                        <span>Paystack Subaccount Workflow</span>
+                        <span>Central Escrow Payout Workflow</span>
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed">
-                        Every vote purchase made via Paystack instantly routes 85% of net ticket funds directly into your dedicated subaccount. Money remains safe until you click <strong>"Request Payout"</strong>.
+                        All incoming payments flow into the main Paystack account first. When you submit a payout request, it is reviewed by admins and disbursed directly to your MoMo or Bank account.
                       </p>
                       <div className="space-y-2 pt-1">
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>No automatic daily sweeping required</span>
+                          <span>No complex subaccount onboarding required</span>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>Direct MoMo & Bank Transfer API integration</span>
+                          <span>Direct MoMo & Bank Wire disbursement</span>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>Instant transaction reference logging</span>
+                          <span>Real-time earnings tracking & status audit log</span>
                         </div>
                       </div>
                     </div>
@@ -3257,8 +3275,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* MODAL: EDIT EVENT */}
+      {/* MODAL: EDIT EVENT */}
+      <AnimatePresence>
         {editingContestModal && (
           <motion.div
             initial={{ opacity: 0 }}

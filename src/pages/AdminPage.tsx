@@ -4,7 +4,7 @@ import {
   CheckCircle, XCircle, ToggleLeft, ToggleRight, Plus, 
   DollarSign, Users, Calendar, AlertTriangle, Send, Search, Clock,
   UserCheck, ShieldCheck, Mail, Phone, Lock, Building2, UserPlus,
-  Trash2, ShieldAlert, CheckCircle2, AlertCircle
+  Trash2, ShieldAlert, CheckCircle2, AlertCircle, Edit3, X, Upload
 } from 'lucide-react';
 import { OrganizerProfile, Contest } from '../types';
 
@@ -208,7 +208,11 @@ export default function AdminPage({
     };
     syncPayouts();
     window.addEventListener('storage', syncPayouts);
-    return () => window.removeEventListener('storage', syncPayouts);
+    window.addEventListener('voteright_payout_update', syncPayouts);
+    return () => {
+      window.removeEventListener('storage', syncPayouts);
+      window.removeEventListener('voteright_payout_update', syncPayouts);
+    };
   }, []);
 
   // Sync Expired Events
@@ -240,6 +244,89 @@ export default function AdminPage({
       onUpdateContests(updatedContests);
     }
     showToast('⚡ Event voting status updated!');
+  };
+
+  // Editing Contest State
+  const [editingContest, setEditingContest] = useState<any | null>(null);
+  const [editBannerUrl, setEditBannerUrl] = useState<string>('');
+
+  const handleOpenEditAdminContest = (contest: any) => {
+    setEditingContest(contest);
+    setEditBannerUrl(contest.bannerUrl || '');
+  };
+
+  const handleSaveEditedContest = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingContest) return;
+
+    const formData = new FormData(e.currentTarget);
+    const title = (formData.get('title') as string)?.trim() || editingContest.title;
+    const organizer = (formData.get('organizer') as string)?.trim() || editingContest.organizer;
+    const category = (formData.get('category') as string)?.trim() || editingContest.category || 'pageant';
+    const description = (formData.get('description') as string)?.trim() || editingContest.description || '';
+    const startDate = (formData.get('startDate') as string)?.trim() || editingContest.startDate;
+    const endDate = (formData.get('endDate') as string)?.trim() || editingContest.endDate;
+    const votePrice = parseFloat(formData.get('votePrice') as string) || editingContest.votePrice || 1.50;
+    const isOngoing = formData.get('isOngoing') === 'true';
+    const bannerUrl = editBannerUrl.trim() || (formData.get('bannerUrl') as string)?.trim() || editingContest.bannerUrl;
+    const slug = (formData.get('slug') as string)?.trim() || editingContest.slug || '';
+    const rulesRaw = formData.get('rules') as string;
+    const rules = rulesRaw !== null ? rulesRaw.split('\n').map(r => r.trim()).filter(Boolean) : editingContest.rules;
+
+    const updatedEvents = events.map(ev => {
+      if (ev.id === editingContest.id) {
+        return {
+          ...ev,
+          title,
+          organizer,
+          category,
+          description,
+          startDate,
+          endDate,
+          votePrice,
+          isOngoing,
+          isLive: isOngoing,
+          bannerUrl,
+          slug: slug || undefined,
+          rules,
+        };
+      }
+      return ev;
+    });
+
+    setEvents(updatedEvents);
+
+    if (propsContests && onUpdateContests) {
+      const updatedContests = propsContests.map(c => {
+        if (c.id === editingContest.id) {
+          return {
+            ...c,
+            title,
+            organizer,
+            category: category as any,
+            description,
+            startDate,
+            endDate,
+            votePrice,
+            isLive: isOngoing,
+            bannerUrl,
+            slug: slug || undefined,
+            rules,
+          };
+        }
+        return c;
+      });
+      onUpdateContests(updatedContests);
+      localStorage.setItem('voterightgh_contests', JSON.stringify(updatedContests));
+    } else {
+      localStorage.setItem('voterightgh_contests', JSON.stringify(updatedEvents));
+    }
+
+    window.dispatchEvent(new Event('voteright_contests_update'));
+    window.dispatchEvent(new Event('storage'));
+
+    setEditingContest(null);
+    showToast(`🎉 Event "${title}" updated successfully!`);
   };
 
   // Handle Manual Add Submission
@@ -413,15 +500,37 @@ export default function AdminPage({
   };
 
   const handleApprovePayout = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
-    const updated = payouts.map(p => p.id === id ? { ...p, status: newStatus } : p);
+    const req = payouts.find((p) => p.id === id);
+    if (!req) return;
+
+    const transferCode = `TRF-PS-${Date.now().toString().slice(-6)}`;
+    const txHash = `0x${Math.random().toString(16).substring(2, 18)}`;
+
+    const updated = payouts.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            status: newStatus,
+            disbursedAt: newStatus === 'APPROVED' ? new Date().toISOString() : p.disbursedAt,
+            transferCode: p.transferCode || transferCode,
+            txHash: p.txHash || txHash,
+          }
+        : p
+    );
+
     setPayouts(updated);
     localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updated));
+    window.dispatchEvent(new Event('voteright_payout_update'));
+    window.dispatchEvent(new Event('storage'));
 
-    const req = payouts.find(p => p.id === id);
     if (newStatus === 'APPROVED') {
-      showToast(`✅ Payout of GHS ${req?.amount?.toLocaleString() || ''} to ${req?.organizerName || req?.organizer || 'Organizer'} APPROVED & DISBURSED!`);
+      showToast(
+        `✅ Payout of GHS ${req.amount?.toLocaleString() || ''} to ${
+          req.organizerName || req.organizer || 'Organizer'
+        } APPROVED & DISBURSED via Main Paystack Account!`
+      );
     } else {
-      showToast(`❌ Payout request rejected.`);
+      showToast(`❌ Payout request of GHS ${req.amount?.toLocaleString() || ''} REJECTED.`);
     }
   };
 
@@ -717,31 +826,44 @@ export default function AdminPage({
                       </p>
                     </div>
 
-                    {/* Voting Status Switch */}
-                    <div className="flex items-center gap-4 bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                        Voting Status:
-                      </span>
-                      <button 
-                        onClick={() => toggleVotingStatus(ev.id)}
-                        className="flex items-center gap-2 transition cursor-pointer active:scale-95"
+                    {/* Actions & Voting Status Switch */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditAdminContest(ev)}
+                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition cursor-pointer shadow-md flex items-center gap-1.5 shrink-0"
+                        title="Edit Event Details & Banner"
                       >
-                        {ev.isOngoing ? (
-                          <>
-                            <ToggleRight className="w-8 h-8 text-emerald-400" />
-                            <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg border border-emerald-500/30">
-                              ONGOING 🟢
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="w-8 h-8 text-rose-400" />
-                            <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg border border-rose-500/30">
-                              ENDED 🔴
-                            </span>
-                          </>
-                        )}
+                        <Edit3 className="w-4 h-4" />
+                        <span>Edit Event</span>
                       </button>
+
+                      <div className="flex items-center gap-3 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-700">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                          Voting Status:
+                        </span>
+                        <button 
+                          onClick={() => toggleVotingStatus(ev.id)}
+                          className="flex items-center gap-2 transition cursor-pointer active:scale-95"
+                        >
+                          {ev.isOngoing ? (
+                            <>
+                              <ToggleRight className="w-8 h-8 text-emerald-400" />
+                              <span className="text-xs bg-emerald-500/20 text-emerald-300 font-black px-3 py-1 rounded-lg border border-emerald-500/30">
+                                ONGOING 🟢
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <ToggleLeft className="w-8 h-8 text-rose-400" />
+                              <span className="text-xs bg-rose-500/20 text-rose-300 font-black px-3 py-1 rounded-lg border border-rose-500/30">
+                                ENDED 🔴
+                              </span>
+                            </>
+                          )
+                        }
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -1089,6 +1211,215 @@ export default function AdminPage({
                   >
                     Create Organizer Account
                   </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: EDIT EVENT */}
+      <AnimatePresence>
+        {editingContest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 my-8 text-white shadow-2xl relative"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-amber-400" />
+                  <h3 className="font-extrabold text-base text-white">
+                    Edit Event: {editingContest.title}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setEditingContest(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditedContest} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Event Title</label>
+                    <input
+                      type="text"
+                      name="title"
+                      required
+                      defaultValue={editingContest.title}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Organizer Name</label>
+                    <input
+                      type="text"
+                      name="organizer"
+                      required
+                      defaultValue={editingContest.organizer || ''}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Category</label>
+                    <select
+                      name="category"
+                      defaultValue={editingContest.category || 'pageant'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    >
+                      <option value="pageant">Beauty Pageant / Fashion</option>
+                      <option value="awards">Awards Scheme / Excellence</option>
+                      <option value="campus">Campus / University Election</option>
+                      <option value="talent">Talent / Reality Show</option>
+                      <option value="corporate">Corporate / Executive Awards</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Vote Price (GHS)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="votePrice"
+                      required
+                      defaultValue={editingContest.votePrice || 1.50}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Voting Status</label>
+                    <select
+                      name="isOngoing"
+                      defaultValue={editingContest.isOngoing ? 'true' : 'false'}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    >
+                      <option value="true">ONGOING (Voting Active)</option>
+                      <option value="false">PAUSED / ENDED (Voting Closed)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      defaultValue={editingContest.startDate ? new Date(editingContest.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      defaultValue={editingContest.endDate ? new Date(editingContest.endDate).toISOString().split('T')[0] : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Custom Slug / URL Path</label>
+                    <input
+                      type="text"
+                      name="slug"
+                      defaultValue={editingContest.slug || ''}
+                      placeholder="e.g. miss-campus-ghana-2026"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Banner / Flyer Image URL</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      name="bannerUrl"
+                      value={editBannerUrl}
+                      onChange={(e) => setEditBannerUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                    <label className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-2.5 rounded-xl cursor-pointer font-bold shrink-0 flex items-center gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              if (typeof reader.result === 'string') {
+                                setEditBannerUrl(reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {editBannerUrl && (
+                    <div className="mt-2 h-28 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 relative">
+                      <img src={editBannerUrl} alt="Flyer Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Event Description</label>
+                  <textarea
+                    name="description"
+                    rows={2}
+                    defaultValue={editingContest.description}
+                    placeholder="Provide details about this contest or event..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Rules & Regulations (One rule per line)</label>
+                  <textarea
+                    name="rules"
+                    rows={2}
+                    defaultValue={editingContest.rules ? editingContest.rules.join('\n') : ''}
+                    placeholder="Rule 1...&#10;Rule 2..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingContest(null)}
+                    className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Save Changes</span>
+                  </button>
                 </div>
               </form>
             </motion.div>

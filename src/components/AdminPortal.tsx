@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Contest,
   Nominee,
@@ -10,7 +10,8 @@ import {
   RecentVoteFeed,
   SiteSettings,
   CurrencyRate,
-  TicketTier
+  TicketTier,
+  PayoutRequest
 } from '../types';
 import { formatPrice } from '../utils/helpers';
 import { Logo } from './Logo';
@@ -48,6 +49,8 @@ import {
   LogOut,
   Upload,
   Calendar,
+  Zap,
+  Check,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -97,8 +100,93 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'settings' | 'contests' | 'nominees' | 'tickets' | 'nominations' | 'organizers' | 'transactions' | 'ticker' | 'database'
+    'overview' | 'settings' | 'contests' | 'nominees' | 'tickets' | 'nominations' | 'organizers' | 'transactions' | 'payouts' | 'ticker' | 'database'
   >('overview');
+
+  // Payout Requests State
+  const [payouts, setPayouts] = useState<PayoutRequest[]>(() => {
+    const saved = localStorage.getItem('voterightgh_payout_requests');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [
+      {
+        id: 'payout-101',
+        userId: 'org-1',
+        organizerName: 'Aseda Event Management',
+        contestId: 'contest-1',
+        eventTitle: 'MISS CAMPUS GHANA 2026',
+        amount: 1500,
+        paymentMethod: 'Mobile Money',
+        momoNetwork: 'MTN MoMo',
+        accountNumber: '0244998877',
+        accountName: 'Kwame Mensah',
+        status: 'APPROVED',
+        createdAt: '2026-08-01T10:30:00Z',
+      },
+    ];
+  });
+
+  useEffect(() => {
+    const syncPayouts = () => {
+      const saved = localStorage.getItem('voterightgh_payout_requests');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPayouts(parsed);
+          }
+        } catch (e) {}
+      }
+    };
+    syncPayouts();
+    window.addEventListener('storage', syncPayouts);
+    window.addEventListener('voteright_payout_update', syncPayouts);
+    return () => {
+      window.removeEventListener('storage', syncPayouts);
+      window.removeEventListener('voteright_payout_update', syncPayouts);
+    };
+  }, []);
+
+  const handleApprovePayoutInPortal = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    const req = payouts.find((p) => p.id === id);
+    if (!req) return;
+
+    const transferCode = `TRF-PS-${Date.now().toString().slice(-6)}`;
+    const txHash = `0x${Math.random().toString(16).substring(2, 18)}`;
+
+    const updated = payouts.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            status: newStatus,
+            disbursedAt: newStatus === 'APPROVED' ? new Date().toISOString() : p.disbursedAt,
+            transferCode: p.transferCode || transferCode,
+            txHash: p.txHash || txHash,
+          }
+        : p
+    );
+
+    setPayouts(updated);
+    localStorage.setItem('voterightgh_payout_requests', JSON.stringify(updated));
+    window.dispatchEvent(new Event('voteright_payout_update'));
+    window.dispatchEvent(new Event('storage'));
+
+    if (newStatus === 'APPROVED') {
+      showToast(
+        `✅ Payout of GHS ${req.amount?.toLocaleString() || ''} to ${
+          req.organizerName || 'Organizer'
+        } APPROVED & DISBURSED via Main Paystack Account!`
+      );
+    } else {
+      showToast(`❌ Payout request of GHS ${req.amount?.toLocaleString() || ''} REJECTED.`);
+    }
+  };
 
   // Filters
   const [contestStatusFilter, setContestStatusFilter] = useState<'all' | 'ongoing' | 'closed'>('all');
@@ -862,6 +950,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
             <span className="bg-emerald-400/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full">
               {transactions.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('payouts')}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              activeTab === 'payouts'
+                ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/20'
+                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Zap className="w-4 h-4" />
+              <span>Payout Management</span>
+            </div>
+            <span className="bg-amber-400/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+              {payouts.filter((p) => p.status === 'PENDING' || p.status === 'pending').length} Pending
             </span>
           </button>
 
@@ -1946,6 +2051,135 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PAYOUT MANAGEMENT TAB */}
+          {activeTab === 'payouts' && (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-3xl">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-400" />
+                      <span>Main Paystack Platform Account</span>
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white mt-1">Organizer Payout & Disbursement Center</h3>
+                  <p className="text-xs text-slate-400">
+                    Review requested withdrawals from organizers and trigger manual or Paystack MoMo/Bank disbursements from the central escrow account.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-slate-950 border border-slate-800 px-4 py-2 rounded-2xl text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Pending Requests</span>
+                    <span className="text-lg font-black text-amber-400">
+                      GHS {payouts.filter(p => p.status === 'PENDING' || p.status === 'pending').reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-slate-950 border border-emerald-500/30 px-4 py-2 rounded-2xl text-right">
+                    <span className="text-[10px] text-emerald-400 font-bold block uppercase">Total Disbursed</span>
+                    <span className="text-lg font-black text-emerald-400">
+                      GHS {payouts.filter(p => p.status === 'APPROVED' || p.status === 'Paid' || p.status === 'DISBURSED').reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payout Requests Table */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                  <h4 className="font-extrabold text-white text-sm">Payout Requests ({payouts.length})</h4>
+                  <span className="text-xs text-slate-400 font-mono">Central Paystack Escrow</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th className="p-4">Organizer / Event</th>
+                        <th className="p-4">Amount</th>
+                        <th className="p-4">Payment Method / Destination</th>
+                        <th className="p-4">Account Name</th>
+                        <th className="p-4">Submitted</th>
+                        <th className="p-4 text-center">Status</th>
+                        <th className="p-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                      {payouts.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-500">
+                            No payout requests found.
+                          </td>
+                        </tr>
+                      ) : (
+                        payouts.map((req) => (
+                          <tr key={req.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="p-4">
+                              <div className="font-extrabold text-white">{req.organizerName || req.organizer || 'Organizer'}</div>
+                              <div className="text-[10px] text-amber-400 font-mono mt-0.5">{req.eventTitle || 'VoteRight Event'}</div>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-mono text-sm font-black text-emerald-400">
+                                GHS {req.amount?.toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold text-slate-200">{req.paymentMethod || 'Mobile Money'}</div>
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                {req.momoNetwork || req.bankOrNetworkName || 'MTN MoMo'} - <span className="text-amber-300 font-bold">{req.accountNumber}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 font-bold text-slate-300">{req.accountName || req.organizerName || '—'}</td>
+                            <td className="p-4 text-slate-400 text-[11px] font-mono">
+                              {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="p-4 text-center">
+                              {req.status === 'APPROVED' || req.status === 'Paid' || req.status === 'DISBURSED' ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+                                  <Check className="w-3 h-3" /> Approved / Disbursed
+                                </span>
+                              ) : req.status === 'REJECTED' ? (
+                                <span className="inline-flex items-center gap-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+                                  <X className="w-3 h-3" /> Rejected
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase animate-pulse">
+                                  <Clock className="w-3 h-3" /> Pending Review
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right">
+                              {(req.status === 'PENDING' || req.status === 'pending') ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleApprovePayoutInPortal(req.id, 'APPROVED')}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow flex items-center gap-1"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Approve & Disburse
+                                  </button>
+                                  <button
+                                    onClick={() => handleApprovePayoutInPortal(req.id, 'REJECTED')}
+                                    className="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 font-extrabold text-[11px] px-2.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <X className="w-3.5 h-3.5" /> Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  {req.transferCode || 'Completed'}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))
