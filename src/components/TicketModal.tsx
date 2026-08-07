@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Contest, CurrencyCode, TicketTier } from '../types';
 import { formatPrice, generateRefCode, generateQrUrl } from '../utils/helpers';
-import { X, Ticket, CheckCircle2, ShieldCheck, QrCode, Smartphone, CreditCard, Printer } from 'lucide-react';
+import { X, Ticket, CheckCircle2, ShieldCheck, QrCode, Smartphone, CreditCard, Printer, Lock, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface TicketModalProps {
   contest: Contest;
@@ -27,27 +27,114 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
-  const [step, setStep] = useState<'selection' | 'completed'>('selection');
+  const [step, setStep] = useState<'selection' | 'initializing' | 'paystack_auth' | 'verifying' | 'completed' | 'error'>('selection');
   const [ticketRef, setTicketRef] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [paystackData, setPaystackData] = useState<{
+    authorization_url: string;
+    access_code: string;
+    reference: string;
+  } | null>(null);
 
-  const totalPriceUSD = selectedTier.price * quantity;
+  const totalPriceGHS = selectedTier.price * quantity;
 
-  const handlePurchase = (e: React.FormEvent) => {
+  const handlePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!buyerPhone) {
       alert('Please enter mobile phone number for ticket SMS pass delivery.');
       return;
     }
 
-    const ref = `TKT-${generateRefCode()}`;
-    setTicketRef(ref);
-    setStep('completed');
+    setStep('initializing');
+    setErrorMessage('');
 
-    confetti({
-      particleCount: 80,
-      spread: 60,
-      origin: { y: 0.6 },
-    });
+    try {
+      const cleanPhone = buyerPhone.replace(/\D/g, '');
+      const email = `${cleanPhone || 'attendee'}@voteright.gh`;
+
+      const response = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          amountGHS: totalPriceGHS,
+          phone: buyerPhone,
+          voterName: buyerName || 'Event Attendee',
+          contestId: contest.id,
+          reference: `TKT-PSTK-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        }),
+      });
+
+      const resData = await response.json();
+      if (!resData.status || !resData.data) {
+        throw new Error(resData.message || 'Failed to initialize Paystack ticket checkout.');
+      }
+
+      setPaystackData(resData.data);
+      setTicketRef(resData.data.reference);
+
+      // Trigger PaystackPop Inline script if present
+      const configRes = await fetch('/api/paystack/config');
+      const config = await configRes.json();
+      const publicKey = config.publicKey || 'pk_test_voteright_gh_demo';
+
+      if (window && (window as any).PaystackPop && resData.data.access_code) {
+        try {
+          const handler = (window as any).PaystackPop.setup({
+            key: publicKey,
+            email: email,
+            amount: Math.round(totalPriceGHS * 100),
+            currency: 'GHS',
+            ref: resData.data.reference,
+            access_code: resData.data.access_code,
+            onClose: () => { setStep('selection'); },
+            callback: (res: any) => {
+              verifyTicketPayment(res.reference || resData.data.reference);
+            }
+          });
+          handler.openIframe();
+          setStep('paystack_auth');
+          return;
+        } catch (popErr) {
+          console.warn('PaystackPop inline error, falling back to overlay verification:', popErr);
+        }
+      }
+
+      setStep('paystack_auth');
+
+    } catch (err: any) {
+      console.error('Paystack Ticket Error:', err);
+      setErrorMessage(err.message || 'An error occurred connecting to Paystack.');
+      setStep('error');
+    }
+  };
+
+  const verifyTicketPayment = async (refToVerify?: string) => {
+    const ref = refToVerify || paystackData?.reference;
+    if (!ref) {
+      setErrorMessage('Missing ticket reference code.');
+      setStep('error');
+      return;
+    }
+
+    setStep('verifying');
+
+    try {
+      const response = await fetch(`/api/paystack/verify/${encodeURIComponent(ref)}`);
+      const data = await response.json();
+
+      if (data.status && data.data && data.data.verified) {
+        setTicketRef(ref);
+        setStep('completed');
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      } else {
+        throw new Error(data.message || 'Payment verification failed.');
+      }
+    } catch (err: any) {
+      console.error('Ticket Verification Error:', err);
+      setErrorMessage(err.message || 'Unable to verify payment with Paystack.');
+      setStep('error');
+    }
   };
 
   return (
@@ -171,22 +258,120 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 <div>
                   <span className="text-xs text-slate-300 block">Total Ticket Price:</span>
                   <span className="text-2xl font-black text-amber-400">
-                    {formatPrice(totalPriceUSD, currency)}
+                    {formatPrice(totalPriceGHS, currency)}
                   </span>
                 </div>
-                <span className="text-xs font-bold text-white bg-blue-600 px-3 py-1 rounded-xl">
-                  {quantity}x {selectedTier.name}
-                </span>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-white bg-blue-600 px-3 py-1 rounded-xl block mb-1">
+                    {quantity}x {selectedTier.name}
+                  </span>
+                  <span className="text-[10px] text-blue-400 font-bold flex items-center gap-1 justify-end">
+                    <Lock className="w-3 h-3" /> Paystack Secured
+                  </span>
+                </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-blue-600/20 cursor-pointer"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-blue-600/20 cursor-pointer flex items-center justify-center gap-2"
               >
-                Pay & Issue Digital QR Pass ({formatPrice(totalPriceUSD, currency)})
+                <span>Pay {formatPrice(totalPriceGHS, currency)} via Paystack</span>
               </button>
             </form>
-          ) : (
+          ) : null}
+
+          {/* Initializing */}
+          {step === 'initializing' && (
+            <div className="py-12 text-center space-y-4">
+              <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+              <h3 className="text-lg font-bold text-white">Connecting to Paystack...</h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                Setting up Paystack ticket checkout for {quantity}x {selectedTier.name}.
+              </p>
+            </div>
+          )}
+
+          {/* Paystack Auth */}
+          {step === 'paystack_auth' && (
+            <div className="py-6 space-y-5 text-center">
+              <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/30">
+                <Lock className="w-8 h-8" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-white">
+                  Paystack Ticket Purchase ({formatPrice(totalPriceGHS, currency)})
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Reference: <strong className="text-amber-400 font-mono">{paystackData?.reference}</strong>
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => verifyTicketPayment()}
+                  className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-amber-400/20 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Verify Payment & Issue E-Ticket</span>
+                </button>
+
+                {paystackData?.authorization_url && (
+                  <a
+                    href={paystackData.authorization_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all border border-slate-700"
+                  >
+                    <span>Open Paystack Checkout Window</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Verifying */}
+          {step === 'verifying' && (
+            <div className="py-12 text-center space-y-4">
+              <div className="w-16 h-16 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
+              <h3 className="text-lg font-bold text-white">Verifying Paystack Payment...</h3>
+            </div>
+          )}
+
+          {/* Error */}
+          {step === 'error' && (
+            <div className="py-8 text-center space-y-4">
+              <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-white">Payment Error</h3>
+                <p className="text-xs text-rose-300 mt-1 max-w-xs mx-auto bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                  {errorMessage || 'Payment could not be verified.'}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setStep('selection')}
+                  className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-4 py-2 rounded-xl"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => verifyTicketPayment()}
+                  className="bg-amber-400 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Completed State */}
+          {step === 'completed' && (
             <div className="space-y-6 animate-in zoom-in-95 duration-300 text-center">
               <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/30">
                 <CheckCircle2 className="w-8 h-8" />
