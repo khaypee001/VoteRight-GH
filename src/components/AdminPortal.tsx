@@ -173,6 +173,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const category = formData.get('category') as any;
     const bannerUrl = formData.get('bannerUrl') as string;
     const description = formData.get('description') as string;
+    const endDate = formData.get('endDate') as string;
     const votePrice = parseFloat(formData.get('votePrice') as string) || 1.50;
     const isLive = formData.get('isLive') === 'true';
     const rulesRaw = formData.get('rules') as string;
@@ -181,11 +182,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     if (editingContest) {
       const updated = contests.map((c) =>
         c.id === editingContest.id
-          ? { ...c, title, organizer, category, bannerUrl, description, votePrice, isLive, rules }
+          ? { ...c, title, organizer, category, bannerUrl, description, endDate: endDate || c.endDate, votePrice, isLive, rules }
           : c
       );
       onUpdateContests(updated);
-      showToast(`Updated contest "${title}"`);
+      showToast(`Updated event "${title}"`);
       setEditingContest(null);
     } else {
       const newC: Contest = {
@@ -196,7 +197,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=1200',
         description,
         startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        endDate: endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
         isLive,
         votePrice,
         totalVotes: 0,
@@ -1224,9 +1225,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               </button>
                               <button
                                 onClick={() => setEditingContest(c)}
-                                className="p-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl cursor-pointer"
+                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                                title="Edit Event"
                               >
-                                <Edit3 className="w-4 h-4" />
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit Event</span>
                               </button>
                               <button
                                 onClick={() => handleDeleteContest(c.id, c.title)}
@@ -2086,7 +2089,7 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Price Per Vote (GH₵)</label>
                   <input
@@ -2096,6 +2099,18 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                     required
                     defaultValue={editingContest?.votePrice || 1.50}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">End Date</label>
+                  <input
+                    type="text"
+                    name="endDate"
+                    required
+                    defaultValue={editingContest?.endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
+                    placeholder="2026-12-31"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
                   />
                 </div>
 

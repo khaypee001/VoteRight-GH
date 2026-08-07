@@ -178,6 +178,39 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   const [editDescription, setEditDescription] = useState(selectedContest?.description || '');
   const [editFlyerUrl, setEditFlyerUrl] = useState(selectedContest?.bannerUrl || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [editingContestModal, setEditingContestModal] = useState<Contest | null>(null);
+
+  // Modal Edit Event submit handler
+  const handleSaveModalContest = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingContestModal) return;
+
+    const formData = new FormData(e.currentTarget);
+    const title = (formData.get('title') as string) || editingContestModal.title;
+    const category = (formData.get('category') as any) || editingContestModal.category;
+    const description = (formData.get('description') as string) || editingContestModal.description;
+    const endDate = (formData.get('endDate') as string) || editingContestModal.endDate;
+    const bannerUrl = (formData.get('bannerUrl') as string) || editingContestModal.bannerUrl;
+
+    const updatedContest: Contest = {
+      ...editingContestModal,
+      title,
+      category,
+      description,
+      endDate,
+      bannerUrl
+    };
+
+    onUpdateContest(updatedContest);
+    if (selectedContest?.id === updatedContest.id) {
+      setSelectedContest(updatedContest);
+      setEditTitle(title);
+      setEditDescription(description);
+      setEditFlyerUrl(bannerUrl);
+    }
+    setEditingContestModal(null);
+    showToast(`🎉 Event "${title}" updated successfully!`);
+  };
 
   // Nominees Local State synchronized with globalNominees
   const [localNominees, setLocalNominees] = useState<Nominee[]>(globalNominees);
@@ -1108,10 +1141,23 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 truncate">{contest.description}</p>
-                          <div className="text-xs font-bold text-amber-400 flex items-center gap-3 pt-1">
-                            <span>{contest.totalVotes.toLocaleString()} Votes</span>
-                            <span>•</span>
-                            <span>{formatPrice(contest.votePrice, currency)} / vote</span>
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <div className="text-xs font-bold text-amber-400 flex items-center gap-2">
+                              <span>{contest.totalVotes.toLocaleString()} Votes</span>
+                              <span>•</span>
+                              <span>{formatPrice(contest.votePrice, currency)} / vote</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingContestModal(contest);
+                              }}
+                              className="text-xs font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 shadow cursor-pointer shrink-0"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Event</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1155,6 +1201,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
                           {/* Action Controls */}
                           <div className="flex items-center gap-3 flex-wrap">
+                            <button
+                              onClick={() => setEditingContestModal(contest)}
+                              className="text-xs font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Event</span>
+                            </button>
                             <button
                               onClick={() => setSelectedContest(contest)}
                               className="text-xs font-bold bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer"
@@ -3174,6 +3227,118 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                     className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 cursor-pointer shadow-lg"
                   >
                     Save Changes
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* MODAL: EDIT EVENT */}
+        {editingContestModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl relative"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-amber-400" />
+                  <h3 className="font-extrabold text-base text-white">
+                    Edit Event: {editingContestModal.title}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setEditingContestModal(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveModalContest} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Event Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    defaultValue={editingContestModal.title}
+                    placeholder="e.g. MISS CAMPUS GHANA 2026"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Category</label>
+                    <input
+                      type="text"
+                      name="category"
+                      required
+                      defaultValue={editingContestModal.category}
+                      placeholder="e.g. Pageant / Awards / Election"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium capitalize"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">End Date</label>
+                    <input
+                      type="text"
+                      name="endDate"
+                      required
+                      defaultValue={editingContestModal.endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
+                      placeholder="YYYY-MM-DD"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Event Description</label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    required
+                    defaultValue={editingContestModal.description}
+                    placeholder="Provide details about this contest or event..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Banner Flyer Image URL</label>
+                  <input
+                    type="url"
+                    name="bannerUrl"
+                    defaultValue={editingContestModal.bannerUrl}
+                    placeholder="https://..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingContestModal(null)}
+                    className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Save Changes</span>
                   </button>
                 </div>
               </form>
