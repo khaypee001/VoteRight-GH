@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import {
   Contest,
   Nominee,
@@ -847,8 +848,9 @@ export default function App() {
         />
       )}
 
-      {/* Vercel Web Analytics */}
+      {/* Vercel Web Analytics & Speed Insights */}
       <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
