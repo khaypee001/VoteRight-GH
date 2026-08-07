@@ -40,3 +40,46 @@ export function calculateDaysLeft(endDateString: string): { days: number; hours:
 
   return { days, hours, minutes };
 }
+
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
+    .replace(/^-+|-+$/g, '');     // Trim leading/trailing hyphens
+}
+
+export function getEventSlug(contest: { id?: string; title: string; slug?: string }): string {
+  if (contest.slug && contest.slug.trim()) {
+    return slugify(contest.slug);
+  }
+  const titleSlug = slugify(contest.title);
+  if (titleSlug) return titleSlug;
+  return contest.id || 'event';
+}
+
+export function getCandidateSlug(nominee: { id?: string; name: string; code: string; slug?: string }): string {
+  if (nominee.slug && nominee.slug.trim()) {
+    return slugify(nominee.slug);
+  }
+  const nameSlug = slugify(nominee.name);
+  const codeSlug = slugify(nominee.code);
+  if (nameSlug && codeSlug) {
+    return `${nameSlug}-${codeSlug}`;
+  }
+  return nameSlug || codeSlug || nominee.id || 'candidate';
+}
+
+export function getEventShareUrl(contest: { id: string; title: string; slug?: string }): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/events/${getEventSlug(contest)}`;
+}
+
+export function getCandidateShareUrl(
+  contest: { id: string; title: string; slug?: string },
+  nominee: { id: string; name: string; code: string; slug?: string }
+): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/events/${getEventSlug(contest)}/candidates/${getCandidateSlug(nominee)}`;
+}

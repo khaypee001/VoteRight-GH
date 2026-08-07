@@ -11,6 +11,7 @@ export interface Nominee {
   votes: number;
   rank?: number;
   status?: 'approved' | 'rejected' | 'pending';
+  slug?: string;
 }
 
 export interface TicketTier {
@@ -63,6 +64,7 @@ export interface Contest {
   rules?: string[];
   nomineeOnboardingMode?: 'organizer_only' | 'public_self_register' | 'hybrid';
   allowSelfRegistration?: boolean;
+  slug?: string;
 }
 
 export interface VoteTransaction {

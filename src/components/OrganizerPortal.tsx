@@ -10,7 +10,7 @@ import {
   VoteTransaction,
   CandidateRegistration 
 } from '../types';
-import { formatPrice } from '../utils/helpers';
+import { formatPrice, getEventShareUrl, getCandidateShareUrl } from '../utils/helpers';
 import {
   fetchOrganizerEvents,
   createOrganizerEvent,
@@ -823,7 +823,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   // Copy Voting Link
   const handleCopyVotingLink = () => {
     if (!selectedContest) return;
-    const url = `${window.location.origin}/contest/${selectedContest.id}`;
+    const url = getEventShareUrl(selectedContest);
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     showToast('Link copied to clipboard!');
@@ -2974,7 +2974,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                 <div className="p-3 bg-white rounded-xl max-w-[140px] mx-auto">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                      `${window.location.origin}/quick-vote?code=${selectedNomineeForBadge.code}`
+                      selectedContest
+                        ? getCandidateShareUrl(selectedContest, selectedNomineeForBadge)
+                        : `${window.location.origin}/events/candidate?code=${selectedNomineeForBadge.code}`
                     )}`}
                     alt="QR Code"
                     className="w-full h-auto"
@@ -3028,7 +3030,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                 <div className="p-3 bg-white rounded-xl max-w-[160px] mx-auto">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                      `${window.location.origin}/contest/${selectedContest.id}`
+                      getEventShareUrl(selectedContest)
                     )}`}
                     alt="Event QR"
                     className="w-full h-auto"

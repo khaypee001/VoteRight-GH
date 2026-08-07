@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Contest, Nominee, CurrencyCode } from '../types';
 import { NomineeCard } from './NomineeCard';
 import { Leaderboard } from './Leaderboard';
-import { calculateDaysLeft, formatPrice } from '../utils/helpers';
+import { calculateDaysLeft, formatPrice, getEventShareUrl } from '../utils/helpers';
 import { 
   ArrowLeft, 
   Vote, 
@@ -66,7 +66,8 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
     });
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const url = getEventShareUrl(contest);
+    navigator.clipboard.writeText(url);
     setCopiedShare(true);
     setTimeout(() => setCopiedShare(false), 2000);
   };
@@ -346,6 +347,7 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
                     <NomineeCard
                       key={nom.id}
                       nominee={nom}
+                      contest={contest}
                       votePrice={contest.votePrice}
                       currency={currency}
                       totalCategoryVotes={totalCatVotes}

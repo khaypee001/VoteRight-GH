@@ -26,6 +26,7 @@ import {
   CURRENCIES
 } from './data/mockData';
 import { Header, ActiveTabType } from './components/Header';
+import { getEventShareUrl, getCandidateShareUrl, getEventSlug, getCandidateSlug, slugify } from './utils/helpers';
 import { Ticker } from './components/Ticker';
 import { HomePage } from './components/HomePage';
 import { CompetitionsPage } from './components/CompetitionsPage';
@@ -299,10 +300,11 @@ export default function App() {
     }
   };
 
-  // Route URL Inspector (/admin & /organizer path guards)
+  // Route URL Inspector (/admin, /organizer & /events/[slug]/candidates/[candidate-slug] deep-link routing)
   useEffect(() => {
     const checkRouteGuards = () => {
-      const pathname = window.location.pathname.toLowerCase();
+      const rawPathname = window.location.pathname;
+      const pathname = rawPathname.toLowerCase();
 
       if (pathname.startsWith('/admin')) {
         const isAdminAuth =
@@ -316,7 +318,10 @@ export default function App() {
           setShowAdminPortal(false);
           setShowAdminLoginModal(true);
         }
-      } else if (pathname.startsWith('/organizer')) {
+        return;
+      }
+
+      if (pathname.startsWith('/organizer')) {
         let isOrganizerAuth = false;
         const savedUserJson = localStorage.getItem('voterightgh_user');
         if (savedUserJson) {
@@ -338,13 +343,91 @@ export default function App() {
             'Organizer Portal Sign-In Required: Please log in with your registered organizer credentials to access the portal.'
           );
         }
+        return;
+      }
+
+      // Deep Linking & Clean Slug Route Handler
+      // Examples: /events/miss-campus-ghana-2026/candidates/evelyn-addo-mcc01
+      //           /contest/contest-1
+      const searchParams = new URLSearchParams(window.location.search);
+      let eventSlug = searchParams.get('contest') || searchParams.get('event') || '';
+      let candidateSlug = searchParams.get('candidate') || searchParams.get('nominee') || searchParams.get('code') || '';
+
+      const parts = rawPathname.split('/').filter(Boolean); // e.g. ['events', 'miss-campus-ghana-2026', 'candidates', 'evelyn-addo-mcc01']
+
+      if (parts.length > 0) {
+        const first = parts[0].toLowerCase();
+        if (first === 'events' || first === 'event' || first === 'contest' || first === 'competitions') {
+          if (parts[1]) {
+            eventSlug = parts[1];
+          }
+          if (parts[2] && ['candidates', 'candidate', 'nominees', 'nominee'].includes(parts[2].toLowerCase())) {
+            if (parts[3]) {
+              candidateSlug = parts[3];
+            }
+          }
+        }
+      }
+
+      if (eventSlug) {
+        const cleanEvent = eventSlug.toLowerCase();
+        const matchedContest = contests.find((c) => {
+          const cSlug = getEventSlug(c).toLowerCase();
+          const titleSlug = slugify(c.title);
+          const cId = c.id.toLowerCase();
+          return (
+            cId === cleanEvent ||
+            cSlug === cleanEvent ||
+            titleSlug === cleanEvent ||
+            (c.slug && slugify(c.slug) === cleanEvent)
+          );
+        });
+
+        if (matchedContest) {
+          setSelectedContest(matchedContest);
+          setActiveTab('competitions');
+
+          if (candidateSlug) {
+            const cleanCand = candidateSlug.toLowerCase();
+            const contestNominees = nominees.filter((n) => n.contestId === matchedContest.id);
+
+            let matchedNominee = contestNominees.find((n) => {
+              const candSlug = getCandidateSlug(n).toLowerCase();
+              const nCode = n.code.toLowerCase();
+              const nId = n.id.toLowerCase();
+              const nameSlug = slugify(n.name);
+              return (
+                nId === cleanCand ||
+                nCode === cleanCand ||
+                candSlug === cleanCand ||
+                nameSlug === cleanCand ||
+                cleanCand.endsWith(`-${nCode}`) ||
+                cleanCand.endsWith(nCode) ||
+                cleanCand.includes(nCode) ||
+                cleanCand.includes(nId)
+              );
+            });
+
+            if (!matchedNominee) {
+              matchedNominee = nominees.find((n) => {
+                const nCode = n.code.toLowerCase();
+                const nId = n.id.toLowerCase();
+                return nId === cleanCand || nCode === cleanCand || cleanCand.endsWith(nCode);
+              });
+            }
+
+            if (matchedNominee) {
+              setVotingModalData({ nominee: matchedNominee, contest: matchedContest });
+            }
+          }
+        }
       }
     };
 
     checkRouteGuards();
     window.addEventListener('popstate', checkRouteGuards);
     return () => window.removeEventListener('popstate', checkRouteGuards);
-  }, [user]);
+  }, [user, contests, nominees]);
 
   // Sync to Local Storage
   useEffect(() => {
@@ -438,6 +521,17 @@ export default function App() {
   const handleSelectContestFromCard = (contest: Contest) => {
     setSelectedContest(contest);
     setActiveTab('competitions');
+    window.history.pushState({}, '', getEventShareUrl(contest));
+  };
+
+  const handleBackFromContest = () => {
+    setSelectedContest(null);
+    window.history.pushState({}, '', '/');
+  };
+
+  const handleOpenCandidateVoteModal = (nominee: Nominee, contest: Contest) => {
+    setVotingModalData({ nominee, contest });
+    window.history.pushState({}, '', getCandidateShareUrl(contest, nominee));
   };
 
   // Direct Code Lookup Trigger
@@ -514,9 +608,9 @@ export default function App() {
                 contest={selectedContest}
                 nominees={nominees}
                 currency={currency}
-                onBack={() => setSelectedContest(null)}
+                onBack={handleBackFromContest}
                 onVoteCandidate={(nominee) =>
-                  setVotingModalData({ nominee, contest: selectedContest })
+                  handleOpenCandidateVoteModal(nominee, selectedContest)
                 }
                 onOpenTickets={() => setActiveTab('tickets')}
               />
@@ -540,7 +634,12 @@ export default function App() {
                   <CompetitionsPage
                     contests={contests}
                     currency={currency}
-                    onSelectContest={setSelectedContest}
+                    onSelectContest={(contest) => {
+                      setSelectedContest(contest);
+                      if (contest) {
+                        window.history.pushState({}, '', getEventShareUrl(contest));
+                      }
+                    }}
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
                   />
@@ -552,7 +651,7 @@ export default function App() {
                     nominees={nominees}
                     onVoteNominee={(nominee) => {
                       const c = contests.find((ct) => ct.id === nominee.contestId);
-                      if (c) setVotingModalData({ nominee, contest: c });
+                      if (c) handleOpenCandidateVoteModal(nominee, c);
                     }}
                   />
                 )}
@@ -778,7 +877,14 @@ export default function App() {
           nominee={votingModalData.nominee}
           contest={votingModalData.contest}
           currency={currency}
-          onClose={() => setVotingModalData(null)}
+          onClose={() => {
+            setVotingModalData(null);
+            if (selectedContest) {
+              window.history.pushState({}, '', getEventShareUrl(selectedContest));
+            } else {
+              window.history.pushState({}, '', '/');
+            }
+          }}
           onConfirmVote={handleConfirmVote}
         />
       )}
@@ -790,7 +896,7 @@ export default function App() {
           initialCode={quickVoteCode}
           onSelectCandidateToVote={(nominee, contest) => {
             setShowQuickVoteModal(false);
-            setVotingModalData({ nominee, contest });
+            handleOpenCandidateVoteModal(nominee, contest);
           }}
           onClose={() => setShowQuickVoteModal(false)}
         />

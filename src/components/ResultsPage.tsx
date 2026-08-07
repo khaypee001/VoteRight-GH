@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Contest, Nominee } from '../types';
+import { getEventShareUrl } from '../utils/helpers';
 import {
   BarChart3,
   Table as TableIcon,
@@ -37,7 +38,8 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   );
 
   const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const url = selectedContest ? getEventShareUrl(selectedContest) : window.location.href;
+    navigator.clipboard.writeText(url);
     setCopiedShare(true);
     setTimeout(() => setCopiedShare(false), 2500);
   };

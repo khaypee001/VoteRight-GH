@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Nominee, CurrencyCode } from '../types';
-import { formatPrice } from '../utils/helpers';
+import { Nominee, Contest, CurrencyCode } from '../types';
+import { formatPrice, getCandidateShareUrl, getCandidateSlug } from '../utils/helpers';
 import { Share2, Check, Trophy, Zap, Award } from 'lucide-react';
 
 interface NomineeCardProps {
   nominee: Nominee;
+  contest?: Contest;
   votePrice: number;
   currency: CurrencyCode;
   totalCategoryVotes: number;
@@ -15,6 +16,7 @@ interface NomineeCardProps {
 
 export const NomineeCard: React.FC<NomineeCardProps> = ({
   nominee,
+  contest,
   votePrice,
   currency,
   totalCategoryVotes,
@@ -29,8 +31,11 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const shareText = `Vote for ${nominee.name} (${nominee.code}) on VoteRightGh!`;
-    navigator.clipboard.writeText(`${shareText}\nDirect Code: ${nominee.code}`);
+    const shareUrl = contest
+      ? getCandidateShareUrl(contest, nominee)
+      : `${window.location.origin}/events/${nominee.contestId}/candidates/${getCandidateSlug(nominee)}`;
+    
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
