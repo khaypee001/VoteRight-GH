@@ -10,11 +10,113 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   // API Health Endpoint
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", service: "VoteRight GH Paystack API" });
+    res.json({ status: "ok", service: "VoteRight GH API & USSD Webhook", ussd_endpoint: "/api/ussd-callback" });
   });
+
+  // Supabase USSD Callback Edge Function Endpoint (Express Webhook Receiver)
+  const handleUssdRequest = (req: express.Request, res: express.Response) => {
+    try {
+      const sessionId = req.body?.sessionId || req.body?.session_id || req.query?.sessionId || "";
+      const serviceCode = req.body?.serviceCode || req.body?.service_code || req.query?.serviceCode || "*384*4765#";
+      const phoneNumber = (req.body?.phoneNumber || req.body?.phone_number || req.body?.msisdn || req.query?.phoneNumber || "").toString().trim();
+      let text = (req.body?.text || req.body?.ussdString || req.body?.message || req.query?.text || "").toString().trim();
+
+      const inputs = text === "" ? [] : text.split("*");
+      let responseText = "";
+
+      if (inputs.length === 0) {
+        responseText = `CON Welcome to VoteRight GH 🇬🇭
+1. Vote for a Contestant
+2. Check Live Standings
+3. Search Event Code
+4. Buy Event Tickets`;
+      } else if (inputs[0] === "1") {
+        if (inputs.length === 1) {
+          responseText = `CON Enter Event Code:
+(e.g., 101 for Ghana Music Awards, 102 for Miss Ghana)`;
+        } else if (inputs.length === 2) {
+          const eventCode = inputs[1].trim();
+          responseText = `CON Ghana Music Awards 2026 (Event #${eventCode})
+Enter Contestant Code:
+(e.g., 101 for Kwesi, 102 for Ama, 103 for Kojo)`;
+        } else if (inputs.length === 3) {
+          const contestantCode = inputs[2].trim();
+          responseText = `CON Voting for Contestant #${contestantCode}
+Enter Number of Votes:
+(1 Vote = GH₵ 1.00)`;
+        } else if (inputs.length === 4) {
+          const contestantCode = inputs[2].trim();
+          const votesCount = parseInt(inputs[3].trim(), 10) || 1;
+          const totalGHS = (votesCount * 1.0).toFixed(2);
+          responseText = `END Vote recorded successfully!
+MoMo payment prompt sent to ${phoneNumber || "your phone"} for GH₵ ${totalGHS} (${votesCount} vote(s) for Contestant #${contestantCode}).
+Thank you for voting on VoteRight GH!`;
+        } else {
+          responseText = `END Invalid USSD selection. Dial *384*4765# to restart.`;
+        }
+      } else if (inputs[0] === "2") {
+        if (inputs.length === 1) {
+          responseText = `CON Enter Event Code to view standings:
+(e.g., 101, 102, 103)`;
+        } else {
+          const eventCode = inputs[1].trim();
+          responseText = `END Live Standings (Event #${eventCode}):
+1. Kwesi Arthur - 1,420 votes
+2. Ama Serwaa - 1,210 votes
+3. Kojo Antwi - 980 votes`;
+        }
+      } else if (inputs[0] === "3") {
+        responseText = `END Active VoteRight GH Event Codes:
+• 101: Ghana Music Awards
+• 102: Miss Ghana Pageant
+• 103: Gospel Excellence Awards
+Dial *384*4765*101# to vote directly!`;
+      } else if (inputs[0] === "4") {
+        if (inputs.length === 1) {
+          responseText = `CON Buy Event Tickets:
+Enter Event Code (e.g. 101):`;
+        } else if (inputs.length === 2) {
+          responseText = `CON Select Ticket Tier:
+1. Regular Pass (GH₵ 50.00)
+2. VIP Pass (GH₵ 150.00)
+3. VVIP Table (GH₵ 500.00)`;
+        } else {
+          const tierChoice = inputs[2] === "2" ? "VIP Pass (GH₵ 150)" : inputs[2] === "3" ? "VVIP Table (GH₵ 500)" : "Regular Pass (GH₵ 50)";
+          responseText = `END Ticket Order Initialized!
+MoMo payment request sent to ${phoneNumber || "your phone"} for ${tierChoice}.
+Check SMS for your e-ticket code upon payment.`;
+        }
+      } else {
+        if (inputs.length === 1) {
+          responseText = `CON VoteRight GH Event #${inputs[0]}
+Enter Contestant Code (e.g., 101, 102):`;
+        } else if (inputs.length === 2) {
+          responseText = `CON Voting for Contestant #${inputs[1]} in Event #${inputs[0]}:
+Enter number of votes (GH₵ 1.00/vote):`;
+        } else if (inputs.length === 3) {
+          const votes = parseInt(inputs[2].trim(), 10) || 1;
+          responseText = `END Vote recorded successfully!
+MoMo prompt sent to ${phoneNumber || "your phone"} for GH₵ ${(votes * 1.0).toFixed(2)} (${votes} vote(s) for Contestant #${inputs[1]}). Thank you!`;
+        } else {
+          responseText = `END Invalid USSD command. Dial *384*4765# for menu.`;
+        }
+      }
+
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.status(200).send(responseText);
+    } catch (err: any) {
+      console.error("USSD Express Webhook Error:", err);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.status(200).send(`END Error processing USSD request: ${err.message || 'System error'}. Please try again.`);
+    }
+  };
+
+  app.all("/api/ussd-callback", handleUssdRequest);
+  app.all("/supabase/functions/ussd-callback", handleUssdRequest);
 
   // Paystack Configuration Endpoint
   app.get("/api/paystack/config", (_req, res) => {

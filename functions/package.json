@@ -1,0 +1,18 @@
+{
+  "name": "voteright-gh-ussd-functions",
+  "description": "Firebase Cloud Function USSD Webhook Callback for VoteRight GH",
+  "scripts": {
+    "serve": "firebase serve --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.5.0"
+  }
+}

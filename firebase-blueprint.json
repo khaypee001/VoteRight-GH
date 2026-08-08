@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "events": {
+      "title": "Events",
+      "description": "Voting and ticketing events on VoteRight GH",
+      "fields": {
+        "title": { "type": "string", "description": "Event title" },
+        "code": { "type": "string", "description": "Short event code e.g. 101" },
+        "description": { "type": "string", "description": "Event description" },
+        "organizerId": { "type": "string", "description": "User ID of organizer" },
+        "status": { "type": "string", "description": "active, ended, upcoming" },
+        "createdAt": { "type": "string", "description": "ISO creation timestamp" }
+      }
+    },
+    "contestants": {
+      "title": "Contestants",
+      "description": "Nominees and contestants participating in events",
+      "fields": {
+        "eventId": { "type": "string", "description": "Associated event ID" },
+        "name": { "type": "string", "description": "Contestant name" },
+        "code": { "type": "string", "description": "USSD contestant code e.g. 101" },
+        "category": { "type": "string", "description": "Award category name" },
+        "votesCount": { "type": "number", "description": "Total verified votes count" },
+        "imageUrl": { "type": "string", "description": "Photo URL" }
+      }
+    },
+    "tickets": {
+      "title": "Tickets",
+      "description": "Ticket passes and pricing tiers for events",
+      "fields": {
+        "eventId": { "type": "string", "description": "Event ID" },
+        "name": { "type": "string", "description": "Tier name e.g. Regular, VIP, VVIP" },
+        "priceGHS": { "type": "number", "description": "Price in GHS" },
+        "quantityAvailable": { "type": "number", "description": "Available stock" }
+      }
+    },
+    "votes": {
+      "title": "Votes",
+      "description": "Real-time vote records from USSD and web channels",
+      "fields": {
+        "eventId": { "type": "string", "description": "Event ID or code" },
+        "contestantId": { "type": "string", "description": "Contestant ID or code" },
+        "votesCount": { "type": "number", "description": "Number of votes" },
+        "amountGHS": { "type": "number", "description": "Amount paid in GHS" },
+        "phoneNumber": { "type": "string", "description": "Voter phone number" },
+        "channel": { "type": "string", "description": "USSD or WEB" },
+        "sessionId": { "type": "string", "description": "USSD session ID" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      }
+    }
+  }
+}
