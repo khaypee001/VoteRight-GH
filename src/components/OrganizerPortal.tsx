@@ -491,6 +491,154 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [showPosterModal, setShowPosterModal] = useState(false);
 
+  // Manage Event Tickets Modal State
+  const [managingTicketsContest, setManagingTicketsContest] = useState<Contest | null>(null);
+  const [managingTiersList, setManagingTiersList] = useState<TicketTier[]>([]);
+  const [managingTicketsEnabled, setManagingTicketsEnabled] = useState<boolean>(true);
+  const [editingTierId, setEditingTierId] = useState<string | null>(null);
+  const [tierNameInput, setTierNameInput] = useState<string>('');
+  const [tierPriceInput, setTierPriceInput] = useState<string>('');
+  const [tierQuantityInput, setTierQuantityInput] = useState<string>('');
+  const [tierDescriptionInput, setTierDescriptionInput] = useState<string>('');
+
+  const handleOpenManageTicketsModal = (contest: Contest) => {
+    setManagingTicketsContest(contest);
+    setManagingTiersList(contest.ticketTiers || [
+      { id: 'tier-reg', name: 'Regular Entry Pass', price: 50, description: 'General access gate pass', available: 300 },
+      { id: 'tier-vip', name: 'VIP Access Pass', price: 150, description: 'VIP seating & complimentary drink', available: 100 }
+    ]);
+    setManagingTicketsEnabled(contest.ticketsEnabled !== false);
+    setEditingTierId(null);
+    setTierNameInput('');
+    setTierPriceInput('');
+    setTierQuantityInput('');
+    setTierDescriptionInput('');
+  };
+
+  const handleAddOrUpdateTier = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tierNameInput.trim()) return;
+
+    const priceNum = parseFloat(tierPriceInput) || 0;
+    const qtyNum = parseInt(tierQuantityInput, 10) || 100;
+
+    if (editingTierId) {
+      setManagingTiersList(prev => prev.map(t => t.id === editingTierId ? {
+        ...t,
+        name: tierNameInput.trim(),
+        price: priceNum,
+        available: qtyNum,
+        description: tierDescriptionInput.trim() || 'Event entry pass'
+      } : t));
+    } else {
+      const newTier: TicketTier = {
+        id: `tier-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: tierNameInput.trim(),
+        price: priceNum,
+        available: qtyNum,
+        description: tierDescriptionInput.trim() || 'Event entry pass'
+      };
+      setManagingTiersList(prev => [...prev, newTier]);
+    }
+
+    setEditingTierId(null);
+    setTierNameInput('');
+    setTierPriceInput('');
+    setTierQuantityInput('');
+    setTierDescriptionInput('');
+  };
+
+  const handleEditTierClick = (tier: TicketTier) => {
+    setEditingTierId(tier.id);
+    setTierNameInput(tier.name);
+    setTierPriceInput(tier.price.toString());
+    setTierQuantityInput(tier.available.toString());
+    setTierDescriptionInput(tier.description || '');
+  };
+
+  const handleDeleteTierClick = (tierId: string) => {
+    setManagingTiersList(prev => prev.filter(t => t.id !== tierId));
+    if (editingTierId === tierId) {
+      setEditingTierId(null);
+      setTierNameInput('');
+      setTierPriceInput('');
+      setTierQuantityInput('');
+      setTierDescriptionInput('');
+    }
+  };
+
+  const handleAddPresetTier = (presetName: string, presetPrice: number, presetQty: number, presetDesc: string) => {
+    const newTier: TicketTier = {
+      id: `tier-preset-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: presetName,
+      price: presetPrice,
+      available: presetQty,
+      description: presetDesc
+    };
+    setManagingTiersList(prev => [...prev, newTier]);
+  };
+
+  const handleSaveTicketsForContest = () => {
+    if (!managingTicketsContest) return;
+
+    const updatedContest: Contest = {
+      ...managingTicketsContest,
+      ticketsEnabled: managingTicketsEnabled && managingTiersList.length > 0,
+      ticketTiers: managingTiersList,
+    };
+
+    onUpdateContest(updatedContest);
+
+    // Save to local storage
+    const saved = localStorage.getItem('voterightgh_contests');
+    const existingContests: Contest[] = saved ? JSON.parse(saved) : contests;
+    const updatedContestsList = existingContests.map(c => c.id === updatedContest.id ? updatedContest : c);
+    localStorage.setItem('voterightgh_contests', JSON.stringify(updatedContestsList));
+
+    // Also sync to ticketEvents in local storage
+    const savedEvts = localStorage.getItem('voterightgh_ticket_events');
+    const existingEvents: any[] = savedEvts ? JSON.parse(savedEvts) : [];
+    const minPrice = managingTiersList.length > 0 ? Math.min(...managingTiersList.map(t => t.price)) : 20;
+
+    let foundInTicketEvents = false;
+    const updatedTicketEvents = existingEvents.map(evt => {
+      if (evt.id === updatedContest.id || evt.title.toLowerCase() === updatedContest.title.toLowerCase()) {
+        foundInTicketEvents = true;
+        return {
+          ...evt,
+          ticketTiers: managingTiersList,
+          priceGHS: minPrice,
+        };
+      }
+      return evt;
+    });
+
+    if (!foundInTicketEvents && managingTiersList.length > 0) {
+      updatedTicketEvents.unshift({
+        id: updatedContest.id,
+        title: updatedContest.title,
+        organizer: updatedContest.organizer || 'Official Organizer',
+        venue: 'Event Venue (See Details)',
+        endDate: updatedContest.endDate ? new Date(updatedContest.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Upcoming',
+        category: updatedContest.category || 'Event Ticket',
+        posterUrl: updatedContest.bannerUrl,
+        priceGHS: minPrice,
+        ticketTiers: managingTiersList
+      });
+    }
+
+    localStorage.setItem('voterightgh_ticket_events', JSON.stringify(updatedTicketEvents));
+
+    // Trigger sync events across window
+    window.dispatchEvent(new Event('voteright_contests_update'));
+    window.dispatchEvent(new Event('voteright_ticket_events_update'));
+    window.dispatchEvent(new Event('storage'));
+
+    setToastMessage(`🎟️ Ticket tiers saved for "${updatedContest.title}"!`);
+    setTimeout(() => setToastMessage(null), 3500);
+    setManagingTicketsContest(null);
+  };
+
   // File Upload Helper
   const handleFileUpload = (file: File, callback: (url: string) => void) => {
     if (!file) return;
@@ -1269,6 +1417,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                             >
                               Manage Nominees →
                             </button>
+                            <button
+                              onClick={() => handleOpenManageTicketsModal(contest)}
+                              className="text-xs font-extrabold bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow cursor-pointer"
+                            >
+                              <Ticket className="w-3.5 h-3.5" />
+                              <span>Manage Tickets ({contest.ticketTiers?.length || 0})</span>
+                            </button>
                           </div>
                         </div>
 
@@ -1827,16 +1982,166 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 3 & 4 */}
+                {/* STEP 3: TICKET TIERS */}
                 {stepperStep === 3 && (
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-6">
-                    <h5 className="font-extrabold text-white text-sm border-b border-slate-800 pb-2">
-                      Step 3: Ticket Tiers
-                    </h5>
-                    <p className="text-xs text-slate-400">Configure ticket passes for your attendees.</p>
-                    <div className="flex justify-between pt-2">
-                      <button onClick={() => setStepperStep(2)} className="bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Back</button>
-                      <button onClick={() => setStepperStep(4)} className="bg-blue-600 text-white text-xs font-bold px-6 py-2.5 rounded-xl">Next: Review & Publish</button>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <h5 className="font-extrabold text-white text-sm">
+                          Step 3: Ticket Tiers & Pass Configuration
+                        </h5>
+                        <p className="text-xs text-slate-400 mt-0.5">Configure ticket passes, prices, and quantities for your event attendees.</p>
+                      </div>
+                      <span className="text-xs font-mono font-bold bg-amber-400/10 text-amber-400 border border-amber-400/20 px-3 py-1 rounded-full">
+                        {ticketTiers.length} Tier(s) Added
+                      </span>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-300">Quick Add Preset Tiers:</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!ticketTiers.some(t => t.name === 'Regular Pass')) {
+                              setTicketTiers(prev => [...prev, { id: `t-reg-${Date.now()}`, name: 'Regular Pass', price: 50, available: 300, description: 'General Gate Entry Pass' }]);
+                            }
+                          }}
+                          className="text-xs font-bold bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Ticket className="w-3.5 h-3.5 text-amber-400" />
+                          <span>+ Regular (GH₵ 50)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!ticketTiers.some(t => t.name === 'VIP Pass')) {
+                              setTicketTiers(prev => [...prev, { id: `t-vip-${Date.now()}`, name: 'VIP Pass', price: 150, available: 100, description: 'Front Row Seating & Free Drink' }]);
+                            }
+                          }}
+                          className="text-xs font-bold bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Ticket className="w-3.5 h-3.5 text-purple-400" />
+                          <span>+ VIP (GH₵ 150)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!ticketTiers.some(t => t.name === 'VVIP Table')) {
+                              setTicketTiers(prev => [...prev, { id: `t-vvip-${Date.now()}`, name: 'VVIP Table Pass', price: 500, available: 20, description: 'Exclusive VVIP Lounge Table for 5' }]);
+                            }
+                          }}
+                          className="text-xs font-bold bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Ticket className="w-3.5 h-3.5 text-amber-400" />
+                          <span>+ VVIP Table (GH₵ 500)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Tiers List */}
+                    <div className="space-y-3">
+                      <label className="block text-xs font-bold text-slate-300">Active Ticket Tiers:</label>
+                      {ticketTiers.length === 0 ? (
+                        <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">
+                          No ticket tiers added yet. Use the presets above or form below to add tier options.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {ticketTiers.map((tier) => (
+                            <div key={tier.id} className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-3">
+                              <div>
+                                <div className="font-extrabold text-white text-xs flex items-center gap-2">
+                                  <span>{tier.name}</span>
+                                  <span className="font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-[11px]">
+                                    GH₵ {tier.price.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-400 mt-1">{tier.description || 'General entry'}</div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">Available: {tier.available} passes</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setTicketTiers(prev => prev.filter(t => t.id !== tier.id))}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg cursor-pointer shrink-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Manual Tier Creation Form */}
+                    <div className="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-3">
+                      <div className="text-xs font-extrabold text-white">Add Custom Ticket Tier</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Tier Name</label>
+                          <input
+                            type="text"
+                            value={tierName}
+                            onChange={(e) => setTierName(e.target.value)}
+                            placeholder="e.g. Early Bird"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Price (GH₵)</label>
+                          <input
+                            type="number"
+                            value={tierPrice}
+                            onChange={(e) => setTierPrice(e.target.value)}
+                            placeholder="e.g. 40"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Quantity</label>
+                          <input
+                            type="number"
+                            value={tierQuantity}
+                            onChange={(e) => setTierQuantity(e.target.value)}
+                            placeholder="e.g. 200"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!tierName.trim()) return;
+                            setTicketTiers(prev => [
+                              ...prev,
+                              {
+                                id: `t-cust-${Date.now()}`,
+                                name: tierName.trim(),
+                                price: parseFloat(tierPrice) || 30,
+                                available: parseInt(tierQuantity, 10) || 100,
+                                description: 'Custom event ticket pass'
+                              }
+                            ]);
+                            setTierName('');
+                            setTierPrice('');
+                            setTierQuantity('');
+                          }}
+                          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          <span>Add Ticket Tier</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between pt-2 border-t border-slate-800">
+                      <button onClick={() => setStepperStep(2)} className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer">Back</button>
+                      <button onClick={() => setStepperStep(4)} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer flex items-center gap-1.5">
+                        <span>Next: Review & Publish</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -3504,6 +3809,258 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* MODAL: MANAGE EVENT TICKETS */}
+        {managingTicketsContest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-6 my-8 text-white shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl">
+                    <Ticket className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-lg text-white">Manage Event Tickets</h3>
+                    <p className="text-xs text-slate-400 line-clamp-1">{managingTicketsContest.title}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setManagingTicketsContest(null)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Status & Ticketing Switch */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-extrabold text-white">Ticketing Status for Public Site</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {managingTicketsEnabled ? 'Active — Users can view & purchase tickets on public gateway.' : 'Disabled — Ticketing is paused for this event.'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setManagingTicketsEnabled(!managingTicketsEnabled)}
+                  className="flex items-center gap-2 cursor-pointer active:scale-95 transition"
+                >
+                  {managingTicketsEnabled ? (
+                    <>
+                      <ToggleRight className="w-8 h-8 text-emerald-400" />
+                      <span className="text-xs bg-emerald-500/20 text-emerald-300 font-extrabold px-3 py-1 rounded-lg border border-emerald-500/30">
+                        ACTIVE 🟢
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-8 h-8 text-rose-400" />
+                      <span className="text-xs bg-rose-500/20 text-rose-300 font-extrabold px-3 py-1 rounded-lg border border-rose-500/30">
+                        DISABLED 🔴
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-300">Quick Add Preset Tier:</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetTier('Regular Pass', 50, 300, 'General gate entry pass')}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-amber-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>+ Regular (GH₵ 50)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetTier('VIP Lounge Pass', 150, 100, 'VIP lounge access + 1 free drink')}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-purple-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-purple-400" />
+                    <span>+ VIP (GH₵ 150)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetTier('VVIP Table Pass', 500, 20, 'Reserved VVIP stage table for 5 guests')}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-indigo-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>+ VVIP Table (GH₵ 500)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing Tiers List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-300">Configured Ticket Tiers ({managingTiersList.length}):</label>
+                </div>
+
+                {managingTiersList.length === 0 ? (
+                  <div className="bg-slate-950 border border-dashed border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
+                    No ticket tiers added. Add one below or use quick presets above.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {managingTiersList.map((tier) => (
+                      <div
+                        key={tier.id}
+                        className={`bg-slate-950 border p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                          editingTierId === tier.id ? 'border-amber-400 bg-amber-400/5' : 'border-slate-800'
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-white">{tier.name}</span>
+                            <span className="font-mono text-xs text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded">
+                              GH₵ {tier.price.toFixed(2)}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                              {tier.available} Available
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400">{tier.description || 'General entry ticket pass'}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleEditTierClick(tier)}
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTierClick(tier.id)}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add / Edit Subform */}
+              <form onSubmit={handleAddOrUpdateTier} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-extrabold text-white">
+                    {editingTierId ? '⚡ Edit Ticket Tier' : '➕ Add New Ticket Tier'}
+                  </div>
+                  {editingTierId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTierId(null);
+                        setTierNameInput('');
+                        setTierPriceInput('');
+                        setTierQuantityInput('');
+                        setTierDescriptionInput('');
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      Cancel Editing
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Tier Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={tierNameInput}
+                      onChange={(e) => setTierNameInput(e.target.value)}
+                      placeholder="e.g. Early Bird Pass"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Price (GH₵)</label>
+                    <input
+                      type="number"
+                      required
+                      step="0.01"
+                      value={tierPriceInput}
+                      onChange={(e) => setTierPriceInput(e.target.value)}
+                      placeholder="e.g. 50"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Quantity Available</label>
+                    <input
+                      type="number"
+                      required
+                      value={tierQuantityInput}
+                      onChange={(e) => setTierQuantityInput(e.target.value)}
+                      placeholder="e.g. 200"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1 text-xs">Tier Description</label>
+                  <input
+                    type="text"
+                    value={tierDescriptionInput}
+                    onChange={(e) => setTierDescriptionInput(e.target.value)}
+                    placeholder="e.g. Stage front row seating & free welcome drink"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{editingTierId ? 'Update Tier' : 'Add Tier to List'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setManagingTicketsContest(null)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTicketsForContest}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-6 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-lg"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save Ticket Configuration</span>
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

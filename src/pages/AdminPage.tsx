@@ -4,9 +4,11 @@ import {
   CheckCircle, XCircle, ToggleLeft, ToggleRight, Plus, 
   DollarSign, Users, Calendar, AlertTriangle, Send, Search, Clock,
   UserCheck, ShieldCheck, Mail, Phone, Lock, Building2, UserPlus,
-  Trash2, ShieldAlert, CheckCircle2, AlertCircle, Edit3, X, Upload
+  Trash2, ShieldAlert, CheckCircle2, AlertCircle, Edit3, X, Upload,
+  Ticket, PlusCircle, Sparkles
 } from 'lucide-react';
-import { OrganizerProfile, Contest } from '../types';
+import { OrganizerProfile, Contest, TicketEvent, TicketTier } from '../types';
+import { INITIAL_TICKET_EVENTS } from '../data/mockData';
 
 export interface AdminPageProps {
   organizers?: OrganizerProfile[];
@@ -75,8 +77,162 @@ export default function AdminPage({
   contests: propsContests,
   onUpdateContests,
 }: AdminPageProps) {
-  const [activeTab, setActiveTab] = useState<'organizers' | 'events' | 'payouts' | 'growth'>('organizers');
+  const [activeTab, setActiveTab] = useState<'organizers' | 'events' | 'tickets' | 'payouts' | 'growth'>('organizers');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Ticket Events & Tiers State
+  const [ticketEvents, setTicketEvents] = useState<TicketEvent[]>(() => {
+    const saved = localStorage.getItem('voterightgh_ticket_events');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_TICKET_EVENTS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('voterightgh_ticket_events', JSON.stringify(ticketEvents));
+  }, [ticketEvents]);
+
+  // Admin Ticket Management Modal State
+  const [editingAdminTicketEvent, setEditingAdminTicketEvent] = useState<TicketEvent | null>(null);
+  const [adminTiersList, setAdminTiersList] = useState<TicketTier[]>([]);
+  const [editingAdminTierId, setEditingAdminTierId] = useState<string | null>(null);
+  const [adminTierName, setAdminTierName] = useState('');
+  const [adminTierPrice, setAdminTierPrice] = useState('');
+  const [adminTierQty, setAdminTierQty] = useState('');
+  const [adminTierDesc, setAdminTierDesc] = useState('');
+
+  // Create New Ticket Event Modal State
+  const [isCreatingNewTicketEvent, setIsCreatingNewTicketEvent] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventOrganizer, setNewEventOrganizer] = useState('');
+  const [newEventVenue, setNewEventVenue] = useState('');
+  const [newEventDate, setNewEventDate] = useState('');
+  const [newEventCategory, setNewEventCategory] = useState('Concert');
+  const [newEventPoster, setNewEventPoster] = useState('');
+
+  const handleOpenAdminTicketsModal = (evt: TicketEvent | Contest | any) => {
+    const existingTiers = evt.ticketTiers || [
+      { id: 'tier-1', name: 'Regular Entry Pass', price: evt.priceGHS || 50, available: 300, description: 'General access gate pass' },
+      { id: 'tier-2', name: 'VIP Access Pass', price: Math.round((evt.priceGHS || 50) * 2.5), available: 100, description: 'Front row seating & free drink' }
+    ];
+    setEditingAdminTicketEvent({
+      id: evt.id,
+      title: evt.title,
+      organizer: evt.organizer || 'Official Organizer',
+      venue: evt.venue || 'Event Venue',
+      endDate: evt.endDate || 'Sat, 15 Oct 2026',
+      category: evt.category || 'Concert & Party',
+      posterUrl: evt.posterUrl || evt.bannerUrl || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&q=80',
+      priceGHS: evt.priceGHS || Math.min(...existingTiers.map((t: any) => t.price)) || 50,
+      ticketTiers: existingTiers
+    });
+    setAdminTiersList(existingTiers);
+    setEditingAdminTierId(null);
+    setAdminTierName('');
+    setAdminTierPrice('');
+    setAdminTierQty('');
+    setAdminTierDesc('');
+  };
+
+  const handleSaveAdminTicketTiers = () => {
+    if (!editingAdminTicketEvent) return;
+
+    const minPrice = adminTiersList.length > 0 ? Math.min(...adminTiersList.map(t => t.price)) : 50;
+    const updatedEvt: TicketEvent = {
+      ...editingAdminTicketEvent,
+      priceGHS: minPrice,
+      ticketTiers: adminTiersList
+    };
+
+    let existsInEvents = false;
+    const updatedTicketEvents = ticketEvents.map(e => {
+      if (e.id === updatedEvt.id || e.title.toLowerCase() === updatedEvt.title.toLowerCase()) {
+        existsInEvents = true;
+        return updatedEvt;
+      }
+      return e;
+    });
+
+    const finalEventsList = existsInEvents ? updatedTicketEvents : [updatedEvt, ...ticketEvents];
+    setTicketEvents(finalEventsList);
+    localStorage.setItem('voterightgh_ticket_events', JSON.stringify(finalEventsList));
+
+    // Also update matching Contest in local storage
+    const savedContests = localStorage.getItem('voterightgh_contests');
+    if (savedContests) {
+      try {
+        const parsedContests: Contest[] = JSON.parse(savedContests);
+        const updatedContests = parsedContests.map(c => {
+          if (c.id === updatedEvt.id || c.title.toLowerCase() === updatedEvt.title.toLowerCase()) {
+            return {
+              ...c,
+              ticketsEnabled: adminTiersList.length > 0,
+              ticketTiers: adminTiersList
+            };
+          }
+          return c;
+        });
+        localStorage.setItem('voterightgh_contests', JSON.stringify(updatedContests));
+        if (onUpdateContests) {
+          onUpdateContests(updatedContests);
+        }
+      } catch (e) {}
+    }
+
+    window.dispatchEvent(new Event('voteright_ticket_events_update'));
+    window.dispatchEvent(new Event('voteright_contests_update'));
+    window.dispatchEvent(new Event('storage'));
+
+    setEditingAdminTicketEvent(null);
+  };
+
+  const handleDeleteTicketEvent = (eventId: string, title: string) => {
+    if (window.confirm(`Delete ticket listing "${title}"?`)) {
+      const updated = ticketEvents.filter(e => e.id !== eventId);
+      setTicketEvents(updated);
+      localStorage.setItem('voterightgh_ticket_events', JSON.stringify(updated));
+      window.dispatchEvent(new Event('voteright_ticket_events_update'));
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const handleCreateNewTicketEventSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEventTitle.trim()) return;
+
+    const newEvt: TicketEvent = {
+      id: `evt-admin-${Date.now()}`,
+      title: newEventTitle.trim(),
+      organizer: newEventOrganizer.trim() || 'Admin Event Board',
+      venue: newEventVenue.trim() || 'National Theatre, Accra',
+      endDate: newEventDate.trim() || 'Sat, 28 Nov 2026',
+      category: newEventCategory,
+      posterUrl: newEventPoster.trim() || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&q=80',
+      priceGHS: 50,
+      ticketTiers: [
+        { id: `t1-${Date.now()}`, name: 'Regular Gate Pass', price: 50, available: 500, description: 'General Gate Entry Pass' },
+        { id: `t2-${Date.now()}`, name: 'VIP Lounge Pass', price: 150, available: 150, description: 'VIP Seating + Free Drink' },
+        { id: `t3-${Date.now()}`, name: 'VVIP Table Pass', price: 500, available: 20, description: 'Reserved Table for 5' }
+      ]
+    };
+
+    const updated = [newEvt, ...ticketEvents];
+    setTicketEvents(updated);
+    localStorage.setItem('voterightgh_ticket_events', JSON.stringify(updated));
+    window.dispatchEvent(new Event('voteright_ticket_events_update'));
+    window.dispatchEvent(new Event('storage'));
+
+    setIsCreatingNewTicketEvent(false);
+    setNewEventTitle('');
+    setNewEventOrganizer('');
+    setNewEventVenue('');
+    setNewEventDate('');
+    setNewEventPoster('');
+  };
 
   // Local Organizers State with Prop Synchronization
   const [localOrganizers, setLocalOrganizers] = useState<OrganizerProfile[]>(() => {
@@ -601,7 +757,8 @@ export default function AdminPage({
         <div className="flex border-b border-slate-700 space-x-2 mb-8 overflow-x-auto">
           {[
             { id: 'organizers', label: `Registered Organizers (${localOrganizers.length})`, icon: Users },
-            { id: 'events', label: `Events & Voting Status (${events.length})`, icon: Calendar },
+            { id: 'events', label: `Events & Voting (${events.length})`, icon: Calendar },
+            { id: 'tickets', label: `Ticket Management (${ticketEvents.length})`, icon: Ticket },
             { id: 'payouts', label: `MoMo Payout Requests (${payouts.filter(p => p.status === 'PENDING').length})`, icon: DollarSign },
             { id: 'growth', label: 'Platform Settings & Broadcast', icon: Send }
           ].map((tab) => {
@@ -838,6 +995,16 @@ export default function AdminPage({
                         <span>Edit Event</span>
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAdminTicketsModal(ev)}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition cursor-pointer shadow-md flex items-center gap-1.5 shrink-0"
+                        title="Manage Ticket Tiers for this Event"
+                      >
+                        <Ticket className="w-4 h-4" />
+                        <span>Manage Tickets</span>
+                      </button>
+
                       <div className="flex items-center gap-3 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-700">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
                           Voting Status:
@@ -866,6 +1033,127 @@ export default function AdminPage({
                       </div>
                     </div>
                   </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* TAB: TICKET MANAGEMENT */}
+          {activeTab === 'tickets' && (
+            <motion.div
+              key="tickets"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              {/* Top Banner Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md">
+                  <div className="text-xs font-extrabold uppercase text-slate-400">Total Ticket Events</div>
+                  <div className="text-2xl font-black text-white mt-1">{ticketEvents.length} Platform Events</div>
+                  <div className="text-[11px] text-emerald-400 font-semibold mt-1">Concerts, Galas & Award Shows</div>
+                </div>
+
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md">
+                  <div className="text-xs font-extrabold uppercase text-slate-400">Configured Pricing Tiers</div>
+                  <div className="text-2xl font-black text-amber-400 mt-1">
+                    {ticketEvents.reduce((acc, e) => acc + (e.ticketTiers?.length || 0), 0)} Tiers
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Regular, VIP & VVIP Passes</div>
+                </div>
+
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md">
+                  <div className="text-xs font-extrabold uppercase text-slate-400">Total Ticket Inventory</div>
+                  <div className="text-2xl font-black text-indigo-400 font-mono mt-1">
+                    {ticketEvents.reduce((acc, e) => acc + (e.ticketTiers?.reduce((sum, t) => sum + (t.available || 0), 0) || 0), 0).toLocaleString()} passes
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Live available capacity</div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-800 border border-slate-700 p-4 rounded-2xl">
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Event E-Tickets Management</h3>
+                  <p className="text-xs text-slate-400">Manage ticket tiers, prices, and available passes across all platform events.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNewTicketEvent(true)}
+                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 shrink-0 shadow-lg"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Create Ticket Event</span>
+                </button>
+              </div>
+
+              {/* Event Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {ticketEvents.map((evt) => (
+                  <div key={evt.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row gap-4 shadow-md hover:border-slate-600 transition">
+                    <img
+                      src={evt.posterUrl}
+                      alt={evt.title}
+                      className="w-full sm:w-28 h-36 rounded-xl object-cover shrink-0 border border-slate-700"
+                    />
+                    <div className="flex-1 min-w-0 space-y-2.5 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[10px] font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded uppercase">
+                            {evt.category || 'Concert & Party'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTicketEvent(evt.id, evt.title)}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs cursor-pointer"
+                            title="Delete Ticket Event"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <h4 className="font-extrabold text-base text-white line-clamp-1 mt-1.5">{evt.title}</h4>
+                        <p className="text-xs text-slate-400">Organizer: <span className="text-slate-200 font-semibold">{evt.organizer}</span></p>
+
+                        <div className="text-xs text-slate-300 mt-2 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400">📍 Venue:</span>
+                            <span className="font-medium">{evt.venue}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400">📅 Date:</span>
+                            <span className="font-medium">{evt.endDate}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 font-mono text-amber-400 font-bold">
+                            <span>From: GH₵ {(evt.priceGHS || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tier Badges & Action */}
+                      <div className="pt-2 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(evt.ticketTiers || []).map((t) => (
+                            <span key={t.id} className="text-[10px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-200 px-2 py-0.5 rounded">
+                              {t.name}: GH₵{t.price} ({t.available})
+                            </span>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAdminTicketsModal(evt)}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 shrink-0 ml-auto"
+                        >
+                          <Ticket className="w-3.5 h-3.5" />
+                          <span>Manage Tiers ({evt.ticketTiers?.length || 0})</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </motion.div>
@@ -1419,6 +1707,426 @@ export default function AdminPage({
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* MODAL: ADMIN MANAGE EVENT TICKET TIERS */}
+        {editingAdminTicketEvent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-6 my-8 text-white shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl">
+                    <Ticket className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-lg text-white">Admin Ticket Tier Management</h3>
+                    <p className="text-xs text-slate-400 line-clamp-1">{editingAdminTicketEvent.title}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingAdminTicketEvent(null)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Quick Add Presets */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-300">Add Quick Preset Tier:</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTier: TicketTier = {
+                        id: `tier-reg-${Date.now()}`,
+                        name: 'Regular Gate Pass',
+                        price: 50,
+                        available: 300,
+                        description: 'General gate access ticket'
+                      };
+                      setAdminTiersList([...adminTiersList, newTier]);
+                    }}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-amber-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>+ Regular (GH₵ 50)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTier: TicketTier = {
+                        id: `tier-vip-${Date.now()}`,
+                        name: 'VIP Access Pass',
+                        price: 150,
+                        available: 100,
+                        description: 'Front seating & free drink'
+                      };
+                      setAdminTiersList([...adminTiersList, newTier]);
+                    }}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-purple-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-purple-400" />
+                    <span>+ VIP (GH₵ 150)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTier: TicketTier = {
+                        id: `tier-vvip-${Date.now()}`,
+                        name: 'VVIP Table Pass',
+                        price: 500,
+                        available: 20,
+                        description: 'Stage table for 5 guests'
+                      };
+                      setAdminTiersList([...adminTiersList, newTier]);
+                    }}
+                    className="text-xs font-bold bg-slate-950 border border-slate-800 hover:border-indigo-400 text-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>+ VVIP Table (GH₵ 500)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tiers List */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-300">Configured Tiers ({adminTiersList.length}):</label>
+                {adminTiersList.length === 0 ? (
+                  <div className="bg-slate-950 border border-dashed border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
+                    No ticket tiers found. Add a tier below.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                    {adminTiersList.map((tier) => (
+                      <div
+                        key={tier.id}
+                        className={`bg-slate-950 border p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                          editingAdminTierId === tier.id ? 'border-amber-400 bg-amber-400/5' : 'border-slate-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-white">{tier.name}</span>
+                            <span className="font-mono text-xs text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded">
+                              GH₵ {tier.price.toFixed(2)}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                              {tier.available} Available
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">{tier.description || 'Event entry ticket'}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAdminTierId(tier.id);
+                              setAdminTierName(tier.name);
+                              setAdminTierPrice(tier.price.toString());
+                              setAdminTierQty(tier.available.toString());
+                              setAdminTierDesc(tier.description || '');
+                            }}
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAdminTiersList(adminTiersList.filter(t => t.id !== tier.id));
+                              if (editingAdminTierId === tier.id) setEditingAdminTierId(null);
+                            }}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Tier Subform */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!adminTierName.trim() || !adminTierPrice) return;
+                  const price = parseFloat(adminTierPrice) || 0;
+                  const available = parseInt(adminTierQty) || 100;
+
+                  if (editingAdminTierId) {
+                    setAdminTiersList(adminTiersList.map(t => t.id === editingAdminTierId ? {
+                      ...t,
+                      name: adminTierName.trim(),
+                      price,
+                      available,
+                      description: adminTierDesc.trim()
+                    } : t));
+                    setEditingAdminTierId(null);
+                  } else {
+                    const newTier: TicketTier = {
+                      id: `tier-custom-${Date.now()}`,
+                      name: adminTierName.trim(),
+                      price,
+                      available,
+                      description: adminTierDesc.trim()
+                    };
+                    setAdminTiersList([...adminTiersList, newTier]);
+                  }
+                  setAdminTierName('');
+                  setAdminTierPrice('');
+                  setAdminTierQty('');
+                  setAdminTierDesc('');
+                }}
+                className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-extrabold text-white">
+                    {editingAdminTierId ? '⚡ Edit Ticket Tier' : '➕ Add New Tier'}
+                  </div>
+                  {editingAdminTierId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAdminTierId(null);
+                        setAdminTierName('');
+                        setAdminTierPrice('');
+                        setAdminTierQty('');
+                        setAdminTierDesc('');
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      Cancel Editing
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Tier Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={adminTierName}
+                      onChange={(e) => setAdminTierName(e.target.value)}
+                      placeholder="e.g. VIP Pass"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Price (GH₵)</label>
+                    <input
+                      type="number"
+                      required
+                      step="0.01"
+                      value={adminTierPrice}
+                      onChange={(e) => setAdminTierPrice(e.target.value)}
+                      placeholder="e.g. 100"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Quantity</label>
+                    <input
+                      type="number"
+                      required
+                      value={adminTierQty}
+                      onChange={(e) => setAdminTierQty(e.target.value)}
+                      placeholder="e.g. 150"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1 text-xs">Description</label>
+                  <input
+                    type="text"
+                    value={adminTierDesc}
+                    onChange={(e) => setAdminTierDesc(e.target.value)}
+                    placeholder="e.g. Gate entry + VIP drink coupon"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl transition cursor-pointer shadow flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{editingAdminTierId ? 'Update Tier' : 'Add Tier to List'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingAdminTicketEvent(null)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAdminTicketTiers}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-6 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-lg"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save All Ticket Changes</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* MODAL: ADMIN CREATE TICKET EVENT */}
+        {isCreatingNewTicketEvent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl p-6 space-y-6 my-8 text-white shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-400/10 border border-amber-400/20 text-amber-400 rounded-2xl">
+                    <PlusCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-lg text-white">Create Ticketed Event</h3>
+                    <p className="text-xs text-slate-400">List a new event with default Regular, VIP, and VVIP ticket tiers.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCreatingNewTicketEvent(false)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNewTicketEventSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Event Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newEventTitle}
+                    onChange={(e) => setNewEventTitle(e.target.value)}
+                    placeholder="e.g. Accra Music & Cultural Festival 2026"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Organizer / Host</label>
+                    <input
+                      type="text"
+                      value={newEventOrganizer}
+                      onChange={(e) => setNewEventOrganizer(e.target.value)}
+                      placeholder="e.g. Golden Era Events"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Category</label>
+                    <select
+                      value={newEventCategory}
+                      onChange={(e) => setNewEventCategory(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    >
+                      <option value="Concert">Concert & Live Show</option>
+                      <option value="Pageant">Beauty Pageant & Gala</option>
+                      <option value="Awards">Excellence Awards</option>
+                      <option value="Festival">Cultural Festival</option>
+                      <option value="Party">Nightclub & Rave</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Venue Location</label>
+                    <input
+                      type="text"
+                      value={newEventVenue}
+                      onChange={(e) => setNewEventVenue(e.target.value)}
+                      placeholder="e.g. Accra International Conference Centre"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Event Date & Time</label>
+                    <input
+                      type="text"
+                      value={newEventDate}
+                      onChange={(e) => setNewEventDate(e.target.value)}
+                      placeholder="e.g. Sat, 15 Dec 2026 at 7:00 PM"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Poster Image URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={newEventPoster}
+                    onChange={(e) => setNewEventPoster(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="bg-amber-400/5 border border-amber-400/20 p-3 rounded-xl text-[11px] text-slate-300 space-y-1">
+                  <div className="font-bold text-amber-400">Default Ticket Tiers Auto-Added:</div>
+                  <div>• Regular Pass: GH₵ 50 (500 capacity)</div>
+                  <div>• VIP Pass: GH₵ 150 (150 capacity)</div>
+                  <div>• VVIP Table: GH₵ 500 (20 capacity)</div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingNewTicketEvent(false)}
+                    className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-6 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-lg"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Create Ticket Event</span>
                   </button>
                 </div>
               </form>
