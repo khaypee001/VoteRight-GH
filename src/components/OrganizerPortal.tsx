@@ -10,7 +10,7 @@ import {
   VoteTransaction,
   CandidateRegistration 
 } from '../types';
-import { formatPrice, getEventShareUrl, getCandidateShareUrl } from '../utils/helpers';
+import { formatPrice, getEventShareUrl, getCandidateShareUrl, getNextNomineeCode } from '../utils/helpers';
 import {
   fetchOrganizerEvents,
   createOrganizerEvent,
@@ -739,20 +739,20 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
   // Delete Nominee Handler
   const handleDeleteNominee = (nomineeId: string, name: string) => {
-    if (window.confirm(`Are you sure you want to remove nominee "${name}"?`)) {
-      setLocalNominees((prev) => prev.filter((n) => n.id !== nomineeId));
-      const savedNominees = localStorage.getItem('voterightgh_nominees');
-      if (savedNominees) {
-        try {
-          const list: Nominee[] = JSON.parse(savedNominees);
-          const updatedList = list.filter((n) => n.id !== nomineeId);
-          localStorage.setItem('voterightgh_nominees', JSON.stringify(updatedList));
-        } catch (err) {
-          console.error('Error deleting nominee from local storage:', err);
-        }
+    setLocalNominees((prev) => prev.filter((n) => n.id !== nomineeId));
+    const savedNominees = localStorage.getItem('voterightgh_nominees');
+    if (savedNominees) {
+      try {
+        const list: Nominee[] = JSON.parse(savedNominees);
+        const updatedList = list.filter((n) => n.id !== nomineeId);
+        localStorage.setItem('voterightgh_nominees', JSON.stringify(updatedList));
+      } catch (err) {
+        console.error('Error deleting nominee from local storage:', err);
       }
-      showToast(`🗑️ Nominee "${name}" deleted.`);
     }
+    window.dispatchEvent(new Event('voteright_nominees_update'));
+    window.dispatchEvent(new Event('storage'));
+    showToast(`🗑️ Nominee "${name}" deleted.`);
   };
 
   // Toggle Event Voting Status
@@ -800,11 +800,11 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
-  // Auto Generate Nominee Code
-  const handleAutoGenerateCode = (prefix: string = 'VR') => {
-    const rand = Math.floor(100 + Math.random() * 900);
-    const code = `${prefix.toUpperCase()}-${rand}`;
-    setManualNomineeCode(code);
+  // Auto Generate Nominee Code in strict sequential order
+  const handleAutoGenerateCode = (_prefix?: string) => {
+    const nextCode = getNextNomineeCode(localNominees, selectedContest);
+    setManualNomineeCode(nextCode);
+    showToast(`Assigned next sequential code: ${nextCode}`);
   };
 
   // Add Nominee Manually from Portal
@@ -819,7 +819,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
       return;
     }
 
-    const codeToUse = manualNomineeCode.trim() || `VR-${Math.floor(100 + Math.random() * 900)}`;
+    const codeToUse = manualNomineeCode.trim() || getNextNomineeCode(localNominees, selectedContest);
 
     const newNom: Nominee = {
       id: `nom-${Date.now()}`,
@@ -834,18 +834,21 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     };
 
     onAddNominee(newNom);
-    setLocalNominees((prev) => [newNom, ...prev]);
+    const updatedNominees = [newNom, ...localNominees];
+    setLocalNominees(updatedNominees);
 
     setManualNomineeName('');
     setManualNomineeBio('');
-    setManualNomineeCode('');
+    // Automatically set next sequential code ready for the next nominee
+    setManualNomineeCode(getNextNomineeCode(updatedNominees, selectedContest));
     setManualNomineePhotoUrl('');
     showToast(`✅ Nominee "${newNom.name}" added with code ${newNom.code}!`);
   };
 
   // Candidate Registration Approval Handlers
   const handleApproveCandidate = (candidate: CandidateRegistration) => {
-    const assignedCode = candidate.proposedCode || `VR-${Math.floor(100 + Math.random() * 900)}`;
+    const candidateContest = myContests.find(c => c.id === candidate.contestId) || selectedContest;
+    const assignedCode = candidate.proposedCode || getNextNomineeCode(localNominees, candidateContest);
 
     const approvedNominee: Nominee = {
       id: `nom-${Date.now()}`,
@@ -1028,7 +1031,16 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
   if (profile.isBlocked) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl text-white">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl text-white relative">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition cursor-pointer"
+            aria-label="Close"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <div className="w-16 h-16 bg-rose-500/20 text-rose-500 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
             <XCircle className="w-8 h-8" />
           </div>
@@ -2252,22 +2264,24 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
                     {/* 4. Unique Voting Code */}
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1 flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
                         <span>4. Unique Voting Code</span>
                         <button
                           type="button"
-                          onClick={() => handleAutoGenerateCode(selectedContest?.title ? selectedContest.title.substring(0, 3) : 'VR')}
-                          className="text-[10px] text-amber-400 hover:underline cursor-pointer font-bold"
+                          onClick={() => handleAutoGenerateCode()}
+                          className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer font-bold flex items-center gap-1"
+                          title="Generate next sequential voting code"
                         >
-                          Auto-Generate ⚡
+                          <Sparkles className="w-3 h-3" />
+                          <span>Sequential ({getNextNomineeCode(localNominees, selectedContest)})</span>
                         </button>
                       </label>
                       <input
                         type="text"
                         required
-                        value={manualNomineeCode}
+                        value={manualNomineeCode || getNextNomineeCode(localNominees, selectedContest)}
                         onChange={(e) => setManualNomineeCode(e.target.value.toUpperCase())}
-                        placeholder="e.g. VR-101, KWA-02"
+                        placeholder={getNextNomineeCode(localNominees, selectedContest)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-blue-500 uppercase"
                       />
                     </div>
@@ -3005,7 +3019,20 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       animate={{ scale: 1, opacity: 1 }}
                       className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative"
                     >
-                      <div className="text-center space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTransferModalOpen(false);
+                          setCompletedPayoutRecord(null);
+                        }}
+                        className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition cursor-pointer"
+                        aria-label="Close transfer modal"
+                        title="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+
+                      <div className="text-center space-y-2 pt-2">
                         <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg">
                           {completedPayoutRecord ? (
                             <CheckCircle2 className="w-7 h-7 text-emerald-400" />
@@ -3319,9 +3346,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                 <div className="p-3 bg-white rounded-xl max-w-[140px] mx-auto">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                      selectedContest
-                        ? getCandidateShareUrl(selectedContest, selectedNomineeForBadge)
-                        : `${window.location.origin}/events/candidate?code=${selectedNomineeForBadge.code}`
+                      getCandidateShareUrl(
+                        selectedContest || myContests.find(c => c.id === selectedNomineeForBadge.contestId) || { id: selectedNomineeForBadge.contestId, title: 'Event' },
+                        selectedNomineeForBadge
+                      )
                     )}`}
                     alt="QR Code"
                     className="w-full h-auto"

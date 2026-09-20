@@ -132,7 +132,23 @@ MoMo prompt sent to ${phoneNumber || "your phone"} for GH₵ ${(votes * 1.0).toF
   // Paystack Initialize Transaction Endpoint
   app.post("/api/paystack/initialize", async (req, res) => {
     try {
-      const { email, amountGHS, phone, voterName, nomineeId, nomineeName, contestId, votesCount, reference, callbackUrl } = req.body;
+      const {
+        email,
+        amountGHS,
+        phone,
+        voterName,
+        nomineeId,
+        nomineeName,
+        contestId,
+        votesCount,
+        reference,
+        callbackUrl,
+        eventId,
+        eventTitle,
+        tierName,
+        quantity,
+        type
+      } = req.body;
 
       if (!amountGHS || amountGHS <= 0) {
         return res.status(400).json({ status: false, message: "Invalid amount provided." });
@@ -159,12 +175,17 @@ MoMo prompt sent to ${phoneNumber || "your phone"} for GH₵ ${(votes * 1.0).toF
             reference: ref,
             callback_url: callbackUrl || "https://voteright.gh/payment-callback",
             metadata: {
-              voterName: voterName || "Anonymous Voter",
+              voterName: voterName || "Customer",
               voterPhone: phone || "",
-              nomineeId,
-              nomineeName,
-              contestId,
-              votesCount,
+              nomineeId: nomineeId || null,
+              nomineeName: nomineeName || null,
+              contestId: contestId || null,
+              votesCount: votesCount || null,
+              eventId: eventId || null,
+              eventTitle: eventTitle || null,
+              tierName: tierName || null,
+              quantity: quantity || null,
+              type: type || (eventId ? "ticket" : "vote"),
               platform: "VoteRight GH"
             }
           })

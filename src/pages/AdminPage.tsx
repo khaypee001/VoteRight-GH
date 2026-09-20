@@ -7,8 +7,8 @@ import {
   Trash2, ShieldAlert, CheckCircle2, AlertCircle, Edit3, X, Upload,
   Ticket, PlusCircle, Sparkles
 } from 'lucide-react';
-import { OrganizerProfile, Contest, TicketEvent, TicketTier } from '../types';
-import { INITIAL_TICKET_EVENTS } from '../data/mockData';
+import { OrganizerProfile, Contest, TicketEvent, TicketTier, Nominee, SiteSettings } from '../types';
+import { INITIAL_TICKET_EVENTS, INITIAL_NOMINEES } from '../data/mockData';
 
 export interface AdminPageProps {
   organizers?: OrganizerProfile[];
@@ -27,6 +27,10 @@ export interface AdminPageProps {
   onUpdateOrganizers?: (organizers: OrganizerProfile[]) => void;
   contests?: Contest[];
   onUpdateContests?: (contests: Contest[]) => void;
+  nominees?: Nominee[];
+  onUpdateNominees?: (nominees: Nominee[]) => void;
+  siteSettings?: SiteSettings;
+  onUpdateSiteSettings?: (settings: SiteSettings) => void;
 }
 
 // --- MOCK INITIAL DATA FALLBACKS ---
@@ -76,9 +80,24 @@ export default function AdminPage({
   onUpdateOrganizers,
   contests: propsContests,
   onUpdateContests,
+  nominees: propsNominees,
+  onUpdateNominees,
+  siteSettings: propsSiteSettings,
+  onUpdateSiteSettings,
 }: AdminPageProps) {
-  const [activeTab, setActiveTab] = useState<'organizers' | 'events' | 'tickets' | 'payouts' | 'growth'>('organizers');
+  const [activeTab, setActiveTab] = useState<'organizers' | 'events' | 'nominees' | 'tickets' | 'payouts' | 'growth'>('organizers');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Nominees Search & Filter State
+  const [nomineeSearch, setNomineeSearch] = useState('');
+  const [nomineeContestFilter, setNomineeContestFilter] = useState('ALL');
+
+  // Confirmation modal state for safe, in-app irreversible actions (NO window.confirm!)
+  const [deleteModal, setDeleteModal] = useState<{
+    type: 'event' | 'nominee' | 'ticket' | 'organizer';
+    id: string;
+    title: string;
+  } | null>(null);
 
   // Ticket Events & Tiers State
   const [ticketEvents, setTicketEvents] = useState<TicketEvent[]>(() => {
@@ -191,13 +210,11 @@ export default function AdminPage({
   };
 
   const handleDeleteTicketEvent = (eventId: string, title: string) => {
-    if (window.confirm(`Delete ticket listing "${title}"?`)) {
-      const updated = ticketEvents.filter(e => e.id !== eventId);
-      setTicketEvents(updated);
-      localStorage.setItem('voterightgh_ticket_events', JSON.stringify(updated));
-      window.dispatchEvent(new Event('voteright_ticket_events_update'));
-      window.dispatchEvent(new Event('storage'));
-    }
+    setDeleteModal({
+      type: 'ticket',
+      id: eventId,
+      title
+    });
   };
 
   const handleCreateNewTicketEventSubmit = (e: React.FormEvent) => {
@@ -334,8 +351,82 @@ export default function AdminPage({
   const [manualIsVerified, setManualIsVerified] = useState(true);
   const [manualError, setManualError] = useState<string | null>(null);
 
-  // Growth / Settings
-  const [platformFee, setPlatformFee] = useState<number>(7.5);
+  // Local Nominees State & Synchronizer
+  const [localNominees, setLocalNominees] = useState<Nominee[]>(() => {
+    if (propsNominees && propsNominees.length > 0) return propsNominees;
+    const saved = localStorage.getItem('voterightgh_nominees');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_NOMINEES;
+  });
+
+  useEffect(() => {
+    if (propsNominees && propsNominees.length > 0) {
+      setLocalNominees(propsNominees);
+    }
+  }, [propsNominees]);
+
+  useEffect(() => {
+    const syncNominees = () => {
+      const saved = localStorage.getItem('voterightgh_nominees');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setLocalNominees(parsed);
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('voteright_nominees_update', syncNominees);
+    window.addEventListener('storage', syncNominees);
+    return () => {
+      window.removeEventListener('voteright_nominees_update', syncNominees);
+      window.removeEventListener('storage', syncNominees);
+    };
+  }, []);
+
+  // Growth / Settings & Platform Revenue Fee
+  const [platformFee, setPlatformFee] = useState<number>(() => {
+    if (propsSiteSettings?.platformFeePercent !== undefined) return propsSiteSettings.platformFeePercent;
+    const savedFee = localStorage.getItem('voteright_platform_fee');
+    if (savedFee) return parseFloat(savedFee) || 15;
+    const savedSettings = localStorage.getItem('voterightgh_site_settings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (typeof parsed.platformFeePercent === 'number') return parsed.platformFeePercent;
+      } catch (e) {}
+    }
+    return 15;
+  });
+  const [savedPlatformFee, setSavedPlatformFee] = useState<number>(platformFee);
+  const [isFeeSaved, setIsFeeSaved] = useState<boolean>(false);
+
+  const handleSavePlatformFee = () => {
+    const currentSettings = propsSiteSettings || (() => {
+      const saved = localStorage.getItem('voterightgh_site_settings');
+      return saved ? JSON.parse(saved) : { platformFeePercent: platformFee };
+    })();
+    const updated = {
+      ...currentSettings,
+      platformFeePercent: platformFee
+    };
+    if (onUpdateSiteSettings) {
+      onUpdateSiteSettings(updated);
+    }
+    localStorage.setItem('voterightgh_site_settings', JSON.stringify(updated));
+    localStorage.setItem('voteright_platform_fee', platformFee.toString());
+    setSavedPlatformFee(platformFee);
+    setIsFeeSaved(true);
+    setTimeout(() => setIsFeeSaved(false), 3500);
+    window.dispatchEvent(new Event('voteright_site_settings_update'));
+    window.dispatchEvent(new Event('storage'));
+    showToast(`✅ Platform voting revenue cut updated to ${platformFee}% and saved!`);
+  };
+
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [activeAnnouncement, setActiveAnnouncement] = useState('Welcome to VoteRight GH! Secure and fast Mobile Money voting.');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -345,6 +436,76 @@ export default function AdminPage({
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  // Safe In-App Deletion Execution (Zero window.confirm blocking)
+  const handleExecuteDelete = () => {
+    if (!deleteModal) return;
+
+    if (deleteModal.type === 'event') {
+      const eventId = deleteModal.id;
+      const title = deleteModal.title;
+      // 1. Remove from local events list
+      setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      // 2. Notify parent update callback
+      if (propsContests && onUpdateContests) {
+        onUpdateContests(propsContests.filter((c) => c.id !== eventId));
+      }
+      // 3. Update localStorage
+      const savedContests = localStorage.getItem('voterightgh_contests');
+      if (savedContests) {
+        try {
+          const list = JSON.parse(savedContests);
+          localStorage.setItem('voterightgh_contests', JSON.stringify(list.filter((c: any) => c.id !== eventId)));
+        } catch (e) {}
+      }
+      // 4. Remove candidates belonging to this event
+      setLocalNominees((prev) => {
+        const filtered = prev.filter((n) => n.contestId !== eventId);
+        localStorage.setItem('voterightgh_nominees', JSON.stringify(filtered));
+        if (onUpdateNominees) onUpdateNominees(filtered);
+        return filtered;
+      });
+      // 5. Close edit modal if open
+      if (editingContest?.id === eventId) {
+        setEditingContest(null);
+      }
+      setDeleteModal(null);
+      window.dispatchEvent(new Event('voteright_contests_update'));
+      window.dispatchEvent(new Event('voteright_nominees_update'));
+      window.dispatchEvent(new Event('storage'));
+      showToast(`🗑️ Event "${title}" and its candidates removed.`);
+    } else if (deleteModal.type === 'nominee') {
+      const nomineeId = deleteModal.id;
+      const name = deleteModal.title;
+      setLocalNominees((prev) => {
+        const filtered = prev.filter((n) => n.id !== nomineeId);
+        localStorage.setItem('voterightgh_nominees', JSON.stringify(filtered));
+        if (onUpdateNominees) onUpdateNominees(filtered);
+        return filtered;
+      });
+      setDeleteModal(null);
+      window.dispatchEvent(new Event('voteright_nominees_update'));
+      window.dispatchEvent(new Event('storage'));
+      showToast(`🗑️ Candidate "${name}" deleted.`);
+    } else if (deleteModal.type === 'ticket') {
+      const eventId = deleteModal.id;
+      const title = deleteModal.title;
+      const updated = ticketEvents.filter((e) => e.id !== eventId);
+      setTicketEvents(updated);
+      localStorage.setItem('voterightgh_ticket_events', JSON.stringify(updated));
+      setDeleteModal(null);
+      window.dispatchEvent(new Event('voteright_ticket_events_update'));
+      window.dispatchEvent(new Event('storage'));
+      showToast(`🗑️ Ticket listing "${title}" deleted.`);
+    } else if (deleteModal.type === 'organizer') {
+      const orgId = deleteModal.id;
+      const name = deleteModal.title;
+      const updated = localOrganizers.filter((o) => o.id !== orgId);
+      updateOrganizersList(updated);
+      setDeleteModal(null);
+      showToast(`🗑️ Organizer profile "${name}" removed.`);
+    }
   };
 
   // Sync Payouts from localStorage
@@ -648,11 +809,12 @@ export default function AdminPage({
   };
 
   const handleDeleteOrganizer = (id: string) => {
-    if (confirm('Are you sure you want to remove this organizer account?')) {
-      const updated = localOrganizers.filter(o => o.id !== id);
-      updateOrganizersList(updated);
-      showToast('🗑️ Organizer profile removed.');
-    }
+    const target = localOrganizers.find(o => o.id === id);
+    setDeleteModal({
+      type: 'organizer',
+      id,
+      title: target?.fullName || target?.email || 'Organizer Profile'
+    });
   };
 
   const handleApprovePayout = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
@@ -758,9 +920,10 @@ export default function AdminPage({
           {[
             { id: 'organizers', label: `Registered Organizers (${localOrganizers.length})`, icon: Users },
             { id: 'events', label: `Events & Voting (${events.length})`, icon: Calendar },
+            { id: 'nominees', label: `Candidates & Nominees (${localNominees.length})`, icon: UserCheck },
             { id: 'tickets', label: `Ticket Management (${ticketEvents.length})`, icon: Ticket },
             { id: 'payouts', label: `MoMo Payout Requests (${payouts.filter(p => p.status === 'PENDING').length})`, icon: DollarSign },
-            { id: 'growth', label: 'Platform Settings & Broadcast', icon: Send }
+            { id: 'growth', label: 'Platform Settings & Revenue Cut', icon: Sparkles }
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -1005,6 +1168,16 @@ export default function AdminPage({
                         <span>Manage Tickets</span>
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={() => setDeleteModal({ type: 'event', id: ev.id, title: ev.title })}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition cursor-pointer shadow-md flex items-center gap-1.5 shrink-0"
+                        title="Remove Event from System"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Remove Event</span>
+                      </button>
+
                       <div className="flex items-center gap-3 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-700">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
                           Voting Status:
@@ -1035,6 +1208,118 @@ export default function AdminPage({
                   </motion.div>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {/* TAB: CANDIDATES & NOMINEES MANAGEMENT */}
+          {activeTab === 'nominees' && (
+            <motion.div
+              key="nominees"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                <div>
+                  <h2 className="text-xl font-black text-white">Candidates & Nominees Directory</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Manage candidates across all competitions. Remove or search nominees with immediate real-time sync.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={nomineeSearch}
+                      onChange={(e) => setNomineeSearch(e.target.value)}
+                      placeholder="Search name, code, category..."
+                      className="w-full bg-slate-900 border border-slate-700 text-xs text-white pl-9 pr-3 py-2.5 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+                    />
+                  </div>
+                  <select
+                    value={nomineeContestFilter}
+                    onChange={(e) => setNomineeContestFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 text-xs text-white px-3 py-2.5 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+                  >
+                    <option value="ALL">All Events ({localNominees.length})</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {localNominees.filter((n) => {
+                const matchesSearch =
+                  n.name.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                  n.code.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                  n.category.toLowerCase().includes(nomineeSearch.toLowerCase());
+                const matchesContest = nomineeContestFilter === 'ALL' || n.contestId === nomineeContestFilter;
+                return matchesSearch && matchesContest;
+              }).length === 0 ? (
+                <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-12 text-center text-slate-400 space-y-2">
+                  <Users className="w-12 h-12 text-slate-600 mx-auto" />
+                  <div className="font-extrabold text-white text-base">No Nominees Found</div>
+                  <p className="text-xs">No candidates match your current search query or competition filter.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {localNominees
+                    .filter((n) => {
+                      const matchesSearch =
+                        n.name.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                        n.code.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                        n.category.toLowerCase().includes(nomineeSearch.toLowerCase());
+                      const matchesContest = nomineeContestFilter === 'ALL' || n.contestId === nomineeContestFilter;
+                      return matchesSearch && matchesContest;
+                    })
+                    .map((n) => {
+                      const parentContest = events.find((e) => e.id === n.contestId);
+                      return (
+                        <div
+                          key={n.id}
+                          className="bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={n.photoUrl}
+                              alt={n.name}
+                              className="w-14 h-14 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-950"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-amber-400/30 inline-block mb-1">
+                                {n.code}
+                              </span>
+                              <h4 className="font-extrabold text-sm text-white truncate">{n.name}</h4>
+                              <p className="text-[11px] text-slate-400 truncate">{n.category}</p>
+                              <p className="text-[10px] text-slate-500 truncate mt-0.5">{parentContest?.title || 'General Competition'}</p>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                            <span className="text-xs text-slate-400 font-bold">Total Votes:</span>
+                            <span className="text-base font-black font-mono text-amber-400">{n.votes.toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-700">
+                            <button
+                              type="button"
+                              onClick={() => setDeleteModal({ type: 'nominee', id: n.id, title: n.name })}
+                              className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                              title="Delete Candidate"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Nominee</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1276,17 +1561,72 @@ export default function AdminPage({
               className="grid md:grid-cols-2 gap-8"
             >
               <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4 shadow-lg">
-                <h3 className="text-lg font-black text-amber-400">VoteRight GH Platform Fee</h3>
-                <p className="text-xs text-slate-400">Adjust the percentage commission deducted automatically from voting revenue.</p>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black text-amber-400">VoteRight GH Platform Fee</h3>
+                  {platformFee !== savedPlatformFee ? (
+                    <span className="text-[11px] bg-amber-500/20 text-amber-300 font-bold px-2.5 py-1 rounded-lg border border-amber-500/30 animate-pulse">
+                      Unsaved Changes
+                    </span>
+                  ) : (
+                    <span className="text-[11px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Saved ({savedPlatformFee}%)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Adjust the percentage commission deducted automatically from voting revenue across all active and upcoming competitions.
+                </p>
                 
-                <div className="flex items-center gap-4">
-                  <input 
-                    type="number" 
-                    value={platformFee} 
-                    onChange={(e) => setPlatformFee(Number(e.target.value))}
-                    className="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 w-28 text-amber-400 font-bold text-lg focus:outline-none focus:border-amber-400" 
-                  />
-                  <span className="text-sm font-bold text-slate-200">% Platform Commission</span>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="relative">
+                    <input 
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="50"
+                      value={platformFee} 
+                      onChange={(e) => setPlatformFee(parseFloat(e.target.value) || 0)}
+                      className="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 w-32 text-amber-400 font-mono font-bold text-lg focus:outline-none focus:border-amber-400" 
+                    />
+                    <span className="absolute right-3 top-3 text-slate-500 font-bold text-sm">%</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSavePlatformFee}
+                    className={`px-5 py-2.5 rounded-xl font-black text-xs transition cursor-pointer flex items-center gap-2 shadow-md ${
+                      platformFee !== savedPlatformFee
+                        ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 scale-105 shadow-amber-400/20'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{platformFee !== savedPlatformFee ? 'Save Revenue Cut' : 'Save'}</span>
+                  </button>
+                </div>
+
+                {isFeeSaved && (
+                  <p className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 animate-fade-in">
+                    <CheckCircle className="w-4 h-4" /> New commission cut ({savedPlatformFee}%) saved and applied to system revenue!
+                  </p>
+                )}
+
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-700/80 text-xs text-slate-300 space-y-2 font-medium">
+                  <div className="font-bold text-slate-400 text-[10px] uppercase tracking-wider">
+                    Voting Revenue Cut Breakdown Preview:
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Platform System Cut:</span>
+                    <span className="font-mono text-amber-400 font-bold">
+                      {platformFee}% (GH₵ {(platformFee).toFixed(2)} per GH₵ 100)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Organizer Payout Revenue:</span>
+                    <span className="font-mono text-emerald-400 font-bold">
+                      {(100 - platformFee).toFixed(1)}% (GH₵ {(100 - platformFee).toFixed(2)} per GH₵ 100)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1355,10 +1695,13 @@ export default function AdminPage({
                   </div>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => setShowManualAddModal(false)}
                   className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition cursor-pointer"
+                  aria-label="Close modal"
+                  title="Close"
                 >
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1693,21 +2036,79 @@ export default function AdminPage({
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                {/* Event Nominees Direct Quick-Management */}
+                <div className="pt-2 border-t border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-300 text-xs flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Candidates in this Competition ({localNominees.filter((n) => n.contestId === editingContest.id).length})</span>
+                    </label>
+                  </div>
+                  {localNominees.filter((n) => n.contestId === editingContest.id).length === 0 ? (
+                    <p className="text-xs text-slate-500 italic bg-slate-950 p-3 rounded-xl border border-slate-800">
+                      No candidates currently registered for this competition.
+                    </p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto space-y-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      {localNominees
+                        .filter((n) => n.contestId === editingContest.id)
+                        .map((cand) => (
+                          <div
+                            key={cand.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <img
+                                src={cand.photoUrl}
+                                alt={cand.name}
+                                className="w-7 h-7 rounded-lg object-cover bg-slate-950 shrink-0"
+                              />
+                              <div className="truncate">
+                                <span className="text-amber-400 font-mono font-bold mr-1.5">[{cand.code}]</span>
+                                <span className="text-white font-bold">{cand.name}</span>
+                                <span className="text-slate-400 ml-1.5 font-mono">({cand.votes} votes)</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteModal({ type: 'nominee', id: cand.id, title: cand.name })}
+                              className="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-500/20 rounded-lg transition cursor-pointer shrink-0"
+                              title="Delete Candidate"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setEditingContest(null)}
-                    className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
+                    onClick={() => setDeleteModal({ type: 'event', id: editingContest.id, title: editingContest.title })}
+                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                   >
-                    Cancel
+                    <Trash2 className="w-4 h-4" />
+                    <span>Remove This Event</span>
                   </button>
-                  <button
-                    type="submit"
-                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Save Changes</span>
-                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingContest(null)}
+                      className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             </motion.div>
@@ -2130,6 +2531,90 @@ export default function AdminPage({
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+        {/* MODAL: SAFE IRREVERSIBLE ACTION CONFIRMATION (NO window.confirm) */}
+        {deleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 text-white shadow-2xl relative"
+            >
+              <button
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition cursor-pointer"
+                aria-label="Close dialog"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 pr-8">
+                <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-white">
+                    {deleteModal.type === 'event' && 'Remove Event'}
+                    {deleteModal.type === 'nominee' && 'Delete Candidate'}
+                    {deleteModal.type === 'ticket' && 'Delete Ticket Listing'}
+                    {deleteModal.type === 'organizer' && 'Remove Organizer Profile'}
+                  </h3>
+                  <p className="text-xs text-slate-400">This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs text-slate-300 leading-relaxed">
+                {deleteModal.type === 'event' && (
+                  <>
+                    Are you sure you want to remove <strong className="text-white">"{deleteModal.title}"</strong>? All candidates, vote counts, and event parameters will be deleted from the system.
+                  </>
+                )}
+                {deleteModal.type === 'nominee' && (
+                  <>
+                    Are you sure you want to delete candidate <strong className="text-white">"{deleteModal.title}"</strong>? Their vote tallies, contestant code, and public profile card will be permanently deleted.
+                  </>
+                )}
+                {deleteModal.type === 'ticket' && (
+                  <>
+                    Are you sure you want to remove ticket event <strong className="text-white">"{deleteModal.title}"</strong>?
+                  </>
+                )}
+                {deleteModal.type === 'organizer' && (
+                  <>
+                    Are you sure you want to delete organizer account <strong className="text-white">"{deleteModal.title}"</strong>?
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal(null)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white font-bold text-xs cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteDelete}
+                  className="bg-rose-500 hover:bg-rose-600 text-white font-black text-xs px-5 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-rose-500/20"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>
+                    {deleteModal.type === 'event' ? 'Remove Event' : 'Confirm Delete'}
+                  </span>
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { VoteTransaction, CurrencyCode } from '../types';
 import { formatPrice, generateQrUrl } from '../utils/helpers';
-import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, Lock, QrCode } from 'lucide-react';
+import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, Lock, QrCode, X } from 'lucide-react';
 
 interface AuditVerificationProps {
   transactions: VoteTransaction[];
@@ -46,10 +46,13 @@ export const AuditVerification: React.FC<AuditVerificationProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="Close audit verification"
+            title="Close"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 

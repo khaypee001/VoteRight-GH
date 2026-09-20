@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Nominee, Contest, CurrencyCode } from '../types';
 import { formatPrice, getCandidateShareUrl, getCandidateSlug } from '../utils/helpers';
-import { Share2, Check, Trophy, Zap, Award } from 'lucide-react';
+import { Share2, Check, Trophy, Zap, Award, Sparkles } from 'lucide-react';
 
 interface NomineeCardProps {
   nominee: Nominee;
@@ -12,6 +12,7 @@ interface NomineeCardProps {
   totalCategoryVotes: number;
   onVote: (nominee: Nominee) => void;
   isVotingEnded?: boolean;
+  isHighlighted?: boolean;
 }
 
 export const NomineeCard: React.FC<NomineeCardProps> = ({
@@ -22,6 +23,7 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
   totalCategoryVotes,
   onVote,
   isVotingEnded = false,
+  isHighlighted = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -29,15 +31,29 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
     ? Math.round((nominee.votes / totalCategoryVotes) * 100) 
     : 0;
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const shareUrl = contest
       ? getCandidateShareUrl(contest, nominee)
       : `${window.location.origin}/events/${nominee.contestId}/candidates/${getCandidateSlug(nominee)}`;
     
-    navigator.clipboard.writeText(shareUrl);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({
+          title: `Vote for ${nominee.name} - ${contest?.title || 'VoteRight GH'}`,
+          text: `Support and vote for ${nominee.name} (${nominee.code}) in ${contest?.title || 'VoteRight GH'}!`,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    } catch (err) {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const getRankBadge = (rank?: number) => {
@@ -71,10 +87,16 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
 
   return (
     <motion.div 
+      id={`candidate-${nominee.code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+      data-candidate-code={nominee.code.toUpperCase()}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -6, transition: { duration: 0.2 } }}
-      className="bg-slate-900 border border-slate-800 hover:border-amber-400/50 rounded-2xl overflow-hidden transition-colors duration-300 shadow-lg flex flex-col group relative hover:shadow-2xl hover:shadow-amber-500/10"
+      className={`bg-slate-900 border rounded-2xl overflow-hidden transition-all duration-300 shadow-lg flex flex-col group relative ${
+        isHighlighted
+          ? 'border-amber-400 ring-4 ring-amber-400/50 shadow-2xl shadow-amber-500/20 scale-[1.01] scroll-mt-28'
+          : 'border-slate-800 hover:border-amber-400/50 hover:shadow-2xl hover:shadow-amber-500/10'
+      }`}
     >
       {/* Photo & Badge */}
       <div className="relative h-60 bg-slate-950 overflow-hidden rounded-xl">
@@ -90,6 +112,14 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
           CODE: {nominee.code}
         </div>
 
+        {/* Highlighted Shared Badge */}
+        {isHighlighted && (
+          <div className="absolute top-12 left-3 z-10 bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg animate-pulse">
+            <Sparkles className="w-3 h-3 fill-slate-950" />
+            <span>Shared Contestant</span>
+          </div>
+        )}
+
         {/* Rank Badge */}
         <div className="absolute top-3 right-3">
           {getRankBadge(nominee.rank)}
@@ -100,10 +130,17 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={handleShare}
-          title="Copy Candidate Code & Share Link"
-          className="absolute bottom-3 right-3 bg-slate-950/80 hover:bg-slate-950 text-slate-200 hover:text-amber-400 border border-slate-700 p-2 rounded-xl transition-all duration-150 ease-in-out shadow cursor-pointer"
+          title="Share direct contestant link"
+          className="absolute bottom-3 right-3 bg-slate-950/80 hover:bg-slate-950 text-slate-200 hover:text-amber-400 border border-slate-700 p-2 rounded-xl transition-all duration-150 ease-in-out shadow cursor-pointer flex items-center gap-1.5"
         >
-          {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-400" />
+              <span className="text-[10px] font-bold text-emerald-400 pr-1">Copied!</span>
+            </>
+          ) : (
+            <Share2 className="w-4 h-4" />
+          )}
         </motion.button>
       </div>
 

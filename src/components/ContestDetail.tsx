@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Contest, Nominee, CurrencyCode } from '../types';
 import { NomineeCard } from './NomineeCard';
@@ -26,6 +26,7 @@ interface ContestDetailProps {
   onBack: () => void;
   onVoteCandidate: (nominee: Nominee) => void;
   onOpenTickets?: (contest: Contest) => void;
+  highlightedCandidateCode?: string | null;
 }
 
 export const ContestDetail: React.FC<ContestDetailProps> = ({
@@ -35,6 +36,7 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
   onBack,
   onVoteCandidate,
   onOpenTickets,
+  highlightedCandidateCode,
 }) => {
   const [activeTab, setActiveTab] = useState<'nominees' | 'leaderboard'>('nominees');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -48,6 +50,38 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
   const isVotingActive = contest.isLive && !isEnded;
 
   const contestNominees = nominees.filter((n) => n.contestId === contest.id);
+
+  // Auto-land and scroll directly to shared contestant
+  useEffect(() => {
+    if (highlightedCandidateCode) {
+      const cleanCode = highlightedCandidateCode.toLowerCase().trim();
+      const target = contestNominees.find(
+        (n) =>
+          n.code.toLowerCase() === cleanCode ||
+          n.id.toLowerCase() === cleanCode ||
+          cleanCode.endsWith(n.code.toLowerCase())
+      );
+
+      if (target) {
+        setActiveTab('nominees');
+        setSearchTerm('');
+        // Ensure the candidate is visible within category filter
+        if (selectedCategory !== 'all' && selectedCategory !== target.category) {
+          setSelectedCategory('all');
+        }
+
+        const timer = setTimeout(() => {
+          const domId = `candidate-${target.code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+          const el = document.getElementById(domId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highlightedCandidateCode, contestNominees]);
 
   // Filter & Sort
   const filteredNominees = contestNominees
@@ -343,6 +377,13 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
                   const categoryNominees = contestNominees.filter((n) => n.category === nom.category);
                   const totalCatVotes = categoryNominees.reduce((sum, n) => sum + n.votes, 0);
 
+                  const isHighlighted = Boolean(
+                    highlightedCandidateCode &&
+                    (nom.code.toLowerCase() === highlightedCandidateCode.toLowerCase() ||
+                     nom.id.toLowerCase() === highlightedCandidateCode.toLowerCase() ||
+                     highlightedCandidateCode.toLowerCase().endsWith(nom.code.toLowerCase()))
+                  );
+
                   return (
                     <NomineeCard
                       key={nom.id}
@@ -353,6 +394,7 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
                       totalCategoryVotes={totalCatVotes}
                       onVote={onVoteCandidate}
                       isVotingEnded={!isVotingActive}
+                      isHighlighted={isHighlighted}
                     />
                   );
                 })}

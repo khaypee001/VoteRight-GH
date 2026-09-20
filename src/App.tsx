@@ -27,7 +27,6 @@ import {
 } from './data/mockData';
 import { Header, ActiveTabType } from './components/Header';
 import { getEventShareUrl, getCandidateShareUrl, getEventSlug, getCandidateSlug, slugify } from './utils/helpers';
-import { Ticker } from './components/Ticker';
 import { HomePage } from './components/HomePage';
 import { CompetitionsPage } from './components/CompetitionsPage';
 import { ResultsPage } from './components/ResultsPage';
@@ -92,6 +91,19 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [purchasedTickets, setPurchasedTickets] = useState<TicketPurchase[]>(() => {
+    const saved = localStorage.getItem('voterightgh_my_tickets');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const handlePurchaseTicketSuccess = (purchase: TicketPurchase) => {
+    setPurchasedTickets((prev) => {
+      const updated = [purchase, ...prev];
+      localStorage.setItem('voterightgh_my_tickets', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const [organizerProfiles, setOrganizerProfiles] = useState<OrganizerProfile[]>(() => {
     const saved = localStorage.getItem('voterightgh_organizer_profiles');
     return saved
@@ -130,7 +142,8 @@ export default function App() {
   const [currency, setCurrency] = useState<CurrencyCode>('GHS');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Modals
+  // Modals & Navigation Deep Link States
+  const [highlightedCandidateCode, setHighlightedCandidateCode] = useState<string | null>(null);
   const [votingModalData, setVotingModalData] = useState<{ nominee: Nominee; contest: Contest } | null>(null);
   const [showQuickVoteModal, setShowQuickVoteModal] = useState<boolean>(false);
   const [quickVoteCode, setQuickVoteCode] = useState<string>('');
@@ -348,12 +361,18 @@ export default function App() {
 
       // Deep Linking & Clean Slug Route Handler
       // Examples: /events/miss-campus-ghana-2026/candidates/evelyn-addo-mcc01
-      //           /contest/contest-1
-      const searchParams = new URLSearchParams(window.location.search);
+      //           /contest/contest-1/candidates/VRG-101
+      //           /candidate?code=VRG-101
+      const rawHash = window.location.hash;
+      const effectivePath = rawHash.startsWith('#/') ? rawHash.substring(1) : rawPathname;
+
+      const searchStr = window.location.search || (rawHash.includes('?') ? rawHash.substring(rawHash.indexOf('?')) : '');
+      const searchParams = new URLSearchParams(searchStr);
+
       let eventSlug = searchParams.get('contest') || searchParams.get('event') || '';
       let candidateSlug = searchParams.get('candidate') || searchParams.get('nominee') || searchParams.get('code') || '';
 
-      const parts = rawPathname.split('/').filter(Boolean); // e.g. ['events', 'miss-campus-ghana-2026', 'candidates', 'evelyn-addo-mcc01']
+      const parts = effectivePath.split('/').filter(Boolean);
 
       if (parts.length > 0) {
         const first = parts[0].toLowerCase();
@@ -366,11 +385,52 @@ export default function App() {
               candidateSlug = parts[3];
             }
           }
+        } else if (first === 'candidates' || first === 'candidate' || first === 'nominee') {
+          if (parts[1]) {
+            candidateSlug = parts[1];
+          }
         }
       }
 
+      // Priority 1: Direct Candidate Shared Link
+      if (candidateSlug) {
+        const cleanCand = candidateSlug.toLowerCase().trim();
+        const candOnlyAlnum = cleanCand.replace(/[^a-z0-9]/g, '');
+
+        let matchedNominee = nominees.find((n) => {
+          const nCode = n.code.toLowerCase().trim();
+          const nId = n.id.toLowerCase().trim();
+          const nSlug = getCandidateSlug(n).toLowerCase().trim();
+          const nNameSlug = slugify(n.name);
+          const nCodeAlnum = nCode.replace(/[^a-z0-9]/g, '');
+
+          return (
+            nCode === cleanCand ||
+            nId === cleanCand ||
+            nSlug === cleanCand ||
+            nNameSlug === cleanCand ||
+            cleanCand.endsWith(`-${nCode}`) ||
+            cleanCand.endsWith(nCode) ||
+            (candOnlyAlnum.length >= 3 && candOnlyAlnum.endsWith(nCodeAlnum)) ||
+            (candOnlyAlnum.length >= 3 && candOnlyAlnum === nCodeAlnum)
+          );
+        });
+
+        if (matchedNominee) {
+          const matchedContest = contests.find((c) => c.id === matchedNominee.contestId);
+          if (matchedContest) {
+            setSelectedContest(matchedContest);
+            setActiveTab('competitions');
+            setHighlightedCandidateCode(matchedNominee.code);
+            setVotingModalData({ nominee: matchedNominee, contest: matchedContest });
+            return;
+          }
+        }
+      }
+
+      // Priority 2: Event Slug Link
       if (eventSlug) {
-        const cleanEvent = eventSlug.toLowerCase();
+        const cleanEvent = eventSlug.toLowerCase().trim();
         const matchedContest = contests.find((c) => {
           const cSlug = getEventSlug(c).toLowerCase();
           const titleSlug = slugify(c.title);
@@ -386,40 +446,7 @@ export default function App() {
         if (matchedContest) {
           setSelectedContest(matchedContest);
           setActiveTab('competitions');
-
-          if (candidateSlug) {
-            const cleanCand = candidateSlug.toLowerCase();
-            const contestNominees = nominees.filter((n) => n.contestId === matchedContest.id);
-
-            let matchedNominee = contestNominees.find((n) => {
-              const candSlug = getCandidateSlug(n).toLowerCase();
-              const nCode = n.code.toLowerCase();
-              const nId = n.id.toLowerCase();
-              const nameSlug = slugify(n.name);
-              return (
-                nId === cleanCand ||
-                nCode === cleanCand ||
-                candSlug === cleanCand ||
-                nameSlug === cleanCand ||
-                cleanCand.endsWith(`-${nCode}`) ||
-                cleanCand.endsWith(nCode) ||
-                cleanCand.includes(nCode) ||
-                cleanCand.includes(nId)
-              );
-            });
-
-            if (!matchedNominee) {
-              matchedNominee = nominees.find((n) => {
-                const nCode = n.code.toLowerCase();
-                const nId = n.id.toLowerCase();
-                return nId === cleanCand || nCode === cleanCand || cleanCand.endsWith(nCode);
-              });
-            }
-
-            if (matchedNominee) {
-              setVotingModalData({ nominee: matchedNominee, contest: matchedContest });
-            }
-          }
+          setHighlightedCandidateCode(null);
         }
       }
     };
@@ -519,17 +546,20 @@ export default function App() {
   };
 
   const handleSelectContestFromCard = (contest: Contest) => {
+    setHighlightedCandidateCode(null);
     setSelectedContest(contest);
     setActiveTab('competitions');
     window.history.pushState({}, '', getEventShareUrl(contest));
   };
 
   const handleBackFromContest = () => {
+    setHighlightedCandidateCode(null);
     setSelectedContest(null);
     window.history.pushState({}, '', '/');
   };
 
   const handleOpenCandidateVoteModal = (nominee: Nominee, contest: Contest) => {
+    setHighlightedCandidateCode(nominee.code);
     setVotingModalData({ nominee, contest });
     window.history.pushState({}, '', getCandidateShareUrl(contest, nominee));
   };
@@ -567,6 +597,10 @@ export default function App() {
           onUpdateOrganizers={setOrganizerProfiles}
           contests={contests}
           onUpdateContests={setContests}
+          nominees={nominees}
+          onUpdateNominees={setNominees}
+          siteSettings={siteSettings}
+          onUpdateSiteSettings={setSiteSettings}
         />
       </ProtectedRoute>
     );
@@ -574,15 +608,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">
-      {/* Recent Activity Ticker */}
-      <Ticker recentVotes={recentVotes} announcements={siteSettings.tickerAnnouncements} />
-
       {/* Main Top Header Navigation */}
       <Header
         activeTab={activeTab}
         onSelectTab={(tab) => {
           setActiveTab(tab);
-          if (tab !== 'competitions') setSelectedContest(null);
+          if (tab !== 'competitions') {
+            setSelectedContest(null);
+            setHighlightedCandidateCode(null);
+          }
         }}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
@@ -613,6 +647,7 @@ export default function App() {
                   handleOpenCandidateVoteModal(nominee, selectedContest)
                 }
                 onOpenTickets={() => setActiveTab('tickets')}
+                highlightedCandidateCode={highlightedCandidateCode}
               />
             ) : (
               <>
@@ -660,7 +695,8 @@ export default function App() {
                   <TicketsPage
                     events={ticketEvents}
                     currency={currency}
-                    onPurchaseTicketSuccess={() => {}}
+                    purchasedTickets={purchasedTickets}
+                    onPurchaseTicketSuccess={handlePurchaseTicketSuccess}
                   />
                 )}
 

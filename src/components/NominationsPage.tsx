@@ -166,8 +166,11 @@ export const NominationsPage: React.FC<NominationsPageProps> = ({ awards, onAddN
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm transition-opacity duration-300 overflow-y-auto">
           <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative border border-slate-200 transition-all duration-300 ease-out scale-100 opacity-100">
             <button
+              type="button"
               onClick={() => setSelectedAward(null)}
               className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Close form"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>

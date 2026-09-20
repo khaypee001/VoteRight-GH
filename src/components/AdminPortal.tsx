@@ -13,7 +13,7 @@ import {
   TicketTier,
   PayoutRequest
 } from '../types';
-import { formatPrice } from '../utils/helpers';
+import { formatPrice, getNextNomineeCode } from '../utils/helpers';
 import { Logo } from './Logo';
 import {
   ShieldAlert,
@@ -2614,12 +2614,25 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Code (e.g. VRG-101)</label>
+                  <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Voting Code</span>
+                    {!editingNominee && (
+                      <span className="text-[10px] text-amber-400 font-normal">
+                        Sequential Order Enabled
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="code"
                     required
-                    defaultValue={editingNominee?.code || 'VRG-'}
+                    defaultValue={
+                      editingNominee?.code ||
+                      getNextNomineeCode(
+                        nominees,
+                        contests.find((c) => c.id === selectedContestForNewNominee)
+                      )
+                    }
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-400 uppercase"
                   />
                 </div>

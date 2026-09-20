@@ -63,8 +63,11 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative border border-slate-200">
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          aria-label="Close registration popup"
+          title="Close"
         >
           <X className="w-5 h-5" />
         </button>

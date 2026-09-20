@@ -1,4 +1,4 @@
-import { CurrencyCode, CurrencyRate } from '../types';
+import { CurrencyCode, CurrencyRate, Nominee, Contest } from '../types';
 import { CURRENCIES } from '../data/mockData';
 
 export function formatPrice(amountInBaseUSD: number, targetCurrency: CurrencyCode = 'GHS'): string {
@@ -82,4 +82,96 @@ export function getCandidateShareUrl(
 ): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return `${origin}/events/${getEventSlug(contest)}/candidates/${getCandidateSlug(nominee)}`;
+}
+
+/**
+ * Automatically calculates the next sequential voting code for a nominee in a contest.
+ * Strictly follows sequential numerical order without generating arbitrary random numbers.
+ * E.g. If contest nominees have codes VRG-101, VRG-102, returns VRG-103.
+ * E.g. If contest nominees have codes VR-01, VR-02, returns VR-03.
+ * E.g. If contest has no nominees yet, derives clean uppercase prefix from contest title and returns ${PREFIX}-01.
+ */
+export function getNextNomineeCode(
+  allNominees: Nominee[] = [],
+  contest?: Contest | { id?: string; title?: string } | null
+): string {
+  // If no contest selected, inspect all nominees or fallback to VR-01
+  if (!contest || !contest.id) {
+    let maxNum = 0;
+    let pad = 2;
+    for (const n of allNominees) {
+      const match = n.code.trim().toUpperCase().match(/^(.*?)(\d+)$/);
+      if (match) {
+        const num = parseInt(match[2], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+          pad = Math.max(pad, match[2].length);
+        }
+      }
+    }
+    const nextNum = maxNum > 0 ? maxNum + 1 : 1;
+    return `VR-${String(nextNum).padStart(pad, '0')}`;
+  }
+
+  // Filter nominees for this contest
+  const contestNominees = allNominees.filter((n) => n.contestId === contest.id);
+
+  // Derive preferred default prefix from contest title
+  let defaultPrefix = 'VRG-';
+  if (contest.title && contest.title.trim()) {
+    const cleanTitle = contest.title.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const words = cleanTitle.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      // Pick first letter of up to 3 words
+      defaultPrefix = words.slice(0, 3).map((w) => w[0].toUpperCase()).join('') + '-';
+    } else if (words.length === 1 && words[0].length >= 3) {
+      defaultPrefix = words[0].substring(0, 3).toUpperCase() + '-';
+    }
+  }
+
+  if (contestNominees.length === 0) {
+    return `${defaultPrefix}01`;
+  }
+
+  // Find maximum number and detect prefix pattern used among existing nominees in this contest
+  let maxNumber = 0;
+  let detectedPrefix = defaultPrefix;
+  let numberPadding = 2;
+  const existingCodesSet = new Set(contestNominees.map((n) => n.code.trim().toUpperCase()));
+
+  for (const nominee of contestNominees) {
+    const rawCode = nominee.code.trim().toUpperCase();
+    const match = rawCode.match(/^(.*?)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const digits = match[2];
+      const num = parseInt(digits, 10);
+      if (!isNaN(num)) {
+        if (num > maxNumber) {
+          maxNumber = num;
+          detectedPrefix = prefix;
+          numberPadding = Math.max(numberPadding, digits.length);
+        }
+      }
+    }
+  }
+
+  if (maxNumber === 0) {
+    let candidateNum = 1;
+    let candidateCode = `${detectedPrefix}${String(candidateNum).padStart(numberPadding, '0')}`;
+    while (existingCodesSet.has(candidateCode)) {
+      candidateNum++;
+      candidateCode = `${detectedPrefix}${String(candidateNum).padStart(numberPadding, '0')}`;
+    }
+    return candidateCode;
+  }
+
+  let nextNumber = maxNumber + 1;
+  let nextCode = `${detectedPrefix}${String(nextNumber).padStart(numberPadding, '0')}`;
+  while (existingCodesSet.has(nextCode)) {
+    nextNumber++;
+    nextCode = `${detectedPrefix}${String(nextNumber).padStart(numberPadding, '0')}`;
+  }
+
+  return nextCode;
 }

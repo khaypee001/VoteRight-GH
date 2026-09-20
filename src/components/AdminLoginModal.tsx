@@ -101,8 +101,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="Close admin login modal"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>

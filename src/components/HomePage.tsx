@@ -10,7 +10,6 @@ import {
   CreditCard,
   BarChart3,
   CheckCircle2,
-  Sparkles,
   Zap,
   Globe,
   Lock,
@@ -45,107 +44,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className="space-y-12 bg-white text-slate-900 pb-16">
-      {/* 1. HERO BANNER SECTION */}
-      <motion.section 
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white rounded-3xl p-6 sm:p-10 shadow-xl relative overflow-hidden"
-      >
-        {/* Decorative background glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="max-w-4xl space-y-6 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 bg-blue-800/60 border border-blue-400/40 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-300"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>Official Voting & Ticketing Gateway</span>
-          </motion.div>
-
-          <motion.h1 
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.55, delay: 0.1 }}
-            className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-white"
-          >
-            {siteSettings?.heroTitle || (siteSettings?.siteName ? `${siteSettings.siteName} – Ghana’s leading awards voting and event ticketing platform` : 'VoteRight GH – Ghana’s leading awards voting and event ticketing platform')}
-          </motion.h1>
-
-          <motion.p 
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.55, delay: 0.2 }}
-            className="text-blue-100 text-sm sm:text-base font-medium max-w-2xl leading-relaxed"
-          >
-            {siteSettings?.heroSubtitle || 'Cast Votes in Ghana easily for your awards voting needs using web instant checkout. Trusted by top award shows for secure and reliable voting.'}
-          </motion.p>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="flex flex-wrap items-center gap-4 pt-2"
-          >
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={onGoToCompetitions}
-              className="bg-white hover:bg-slate-100 text-blue-700 font-extrabold text-xs sm:text-sm px-6 py-3.5 rounded-2xl shadow-lg transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <span>Vote Now</span>
-              <ArrowRight className="w-4 h-4" />
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={onGoToResults}
-              className="border-2 border-white/80 hover:bg-white/10 text-white font-extrabold text-xs sm:text-sm px-6 py-3.5 rounded-2xl transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>View Results</span>
-            </motion.button>
-          </motion.div>
-
-          {/* Organizer Callout Box */}
-          <motion.div 
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="pt-6 border-t border-blue-500/40 mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-blue-800/50 p-4 rounded-2xl border border-blue-400/30"
-          >
-            <div>
-              <div className="font-extrabold text-sm text-white">
-                Want to host your event or sell tickets on VoteRight GH?
-              </div>
-              <div className="text-xs text-blue-200">
-                Set up your competition, generate voting codes, and track revenue instantly.
-              </div>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onOpenOrganizerRegistration}
-              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer shrink-0"
-            >
-              Get Started Now
-            </motion.button>
-          </motion.div>
-        </div>
-      </motion.section>
-
-      {/* 2. POPULAR AWARD SHOWS SECTION */}
+      {/* 1. POPULAR AWARD SHOWS SECTION */}
       <section className="space-y-6">
         <motion.div 
           initial={{ opacity: 0, x: -30 }}
