@@ -2431,7 +2431,6 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                     <option value="pageant">Beauty Pageant</option>
                     <option value="award">Excellence Award</option>
                     <option value="election">Student Election</option>
-                    <option value="talent">Talent Show</option>
                     <option value="other">Other Event</option>
                   </select>
                 </div>

@@ -49,7 +49,6 @@ export const Hero: React.FC<HeroProps> = ({
     { id: 'pageant', label: '👑 Beauty Pageants', icon: Crown },
     { id: 'award', label: '🏆 Excellence Awards', icon: Award },
     { id: 'election', label: '🎓 Student Union & SRC', icon: Vote },
-    { id: 'talent', label: '🎤 Talent Shows', icon: Sparkles },
     { id: 'ticket', label: '🎟️ Event E-Tickets', icon: Ticket },
   ];
 

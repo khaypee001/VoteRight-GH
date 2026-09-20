@@ -1655,7 +1655,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                           <option value="award">Award Scheme</option>
                           <option value="pageant">Beauty Pageant</option>
                           <option value="election">Student / Executive Election</option>
-                          <option value="talent">Talent Show / Reality TV</option>
                           <option value="ticket">Concert / Event Tickets</option>
                         </select>
                       </div>
@@ -3678,7 +3677,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                       <option value="pageant">Beauty Pageant</option>
                       <option value="award">Excellence Award</option>
                       <option value="election">Student Election</option>
-                      <option value="talent">Talent Show</option>
                       <option value="other">Other Event</option>
                     </select>
                   </div>

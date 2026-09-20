@@ -3,15 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Contest, Nominee, CurrencyCode } from '../types';
 import { NomineeCard } from './NomineeCard';
 import { Leaderboard } from './Leaderboard';
-import { calculateDaysLeft, formatPrice, getEventShareUrl } from '../utils/helpers';
+import { calculateDaysLeft, formatPrice, getEventShareUrl, copyToClipboard } from '../utils/helpers';
 import { 
   ArrowLeft, 
   Vote, 
   Trophy, 
-  Ticket, 
   Share2, 
-  Clock, 
-  Info, 
   Search, 
   Check, 
   Filter, 
@@ -43,13 +40,15 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'votes' | 'code' | 'name'>('votes');
   const [copiedShare, setCopiedShare] = useState(false);
-  const [showRules, setShowRules] = useState(false);
 
   const { days, hours, minutes } = calculateDaysLeft(contest.endDate);
   const isEnded = days === 0 && hours === 0 && minutes === 0;
   const isVotingActive = contest.isLive && !isEnded;
 
   const contestNominees = nominees.filter((n) => n.contestId === contest.id);
+  const categoryCount = contest.categories && contest.categories.length > 0
+    ? contest.categories.length
+    : new Set(contestNominees.map((n) => n.category)).size;
 
   // Auto-land and scroll directly to shared contestant
   useEffect(() => {
@@ -70,15 +69,21 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
           setSelectedCategory('all');
         }
 
-        const timer = setTimeout(() => {
-          const domId = `candidate-${target.code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-          const el = document.getElementById(domId);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 150);
+        const scrollDelays = [100, 300, 600];
+        const timers: NodeJS.Timeout[] = [];
 
-        return () => clearTimeout(timer);
+        scrollDelays.forEach((delay) => {
+          const t = setTimeout(() => {
+            const domId = `candidate-${target.code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            const el = document.getElementById(domId) || document.querySelector(`[data-candidate-code="${target.code.toUpperCase()}"]`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, delay);
+          timers.push(t);
+        });
+
+        return () => timers.forEach(clearTimeout);
       }
     }
   }, [highlightedCandidateCode, contestNominees]);
@@ -99,9 +104,9 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
       return a.name.localeCompare(b.name);
     });
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const url = getEventShareUrl(contest);
-    navigator.clipboard.writeText(url);
+    await copyToClipboard(url);
     setCopiedShare(true);
     setTimeout(() => setCopiedShare(false), 2000);
   };
@@ -196,56 +201,28 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
         </div>
 
         {/* Stats Strip */}
-        <div className="bg-slate-950 border-t border-slate-800 px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div className="bg-slate-950 border-t border-slate-800 px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-slate-400 text-[11px] font-medium">Total Votes Cast</div>
+            <div className="text-slate-400 text-[11px] font-medium">Number of Categories</div>
             <div className="text-xl font-black text-amber-400 mt-0.5">
-              {contest.totalVotes.toLocaleString()}
+              {categoryCount} {categoryCount === 1 ? 'Category' : 'Categories'}
             </div>
           </div>
           <div>
-            <div className="text-slate-400 text-[11px] font-medium">Vote Price</div>
-            <div className="text-xl font-black text-white mt-0.5">
-              {formatPrice(contest.votePrice, currency)} / vote
-            </div>
-          </div>
-          <div>
-            <div className="text-slate-400 text-[11px] font-medium">Time Remaining</div>
-            <div className="text-xl font-black text-blue-400 mt-0.5">
-              {isEnded ? 'Closed' : `${days}d ${hours}h ${minutes}m`}
-            </div>
-          </div>
-          <div>
-            <div className="text-slate-400 text-[11px] font-medium">Total Candidates</div>
+            <div className="text-slate-400 text-[11px] font-medium">Number of Nominees</div>
             <div className="text-xl font-black text-emerald-400 mt-0.5">
-              {contestNominees.length} Nominees
+              {contestNominees.length} {contestNominees.length === 1 ? 'Nominee' : 'Nominees'}
+            </div>
+          </div>
+          <div>
+            <div className="text-slate-400 text-[11px] font-medium">Voting Status</div>
+            <div className={`text-xl font-black mt-0.5 flex items-center justify-center gap-1.5 ${isVotingActive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`w-2.5 h-2.5 rounded-full ${isVotingActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+              {isVotingActive ? 'Voting Active' : 'Voting Ended'}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Rules Banner (Collapsible) */}
-      {contest.rules && (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-          <button
-            onClick={() => setShowRules(!showRules)}
-            className="w-full flex items-center justify-between text-xs font-bold text-amber-400 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Info className="w-4 h-4" /> Voting Rules & Official Guidelines
-            </span>
-            <span>{showRules ? 'Hide Guidelines ▲' : 'Show Guidelines ▼'}</span>
-          </button>
-
-          {showRules && (
-            <ul className="mt-3 space-y-1.5 text-xs text-slate-300 border-t border-slate-800 pt-3 pl-4 list-disc">
-              {contest.rules.map((rule, idx) => (
-                <li key={idx}>{rule}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {/* Navigation Tabs */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-2">
@@ -272,15 +249,6 @@ export const ContestDetail: React.FC<ContestDetailProps> = ({
             <Trophy className="w-4 h-4" /> Live Leaderboard
           </button>
         </div>
-
-        {contest.ticketsEnabled && onOpenTickets && (
-          <button
-            onClick={() => onOpenTickets(contest)}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow cursor-pointer"
-          >
-            <Ticket className="w-4 h-4" /> Buy Event E-Tickets
-          </button>
-        )}
       </div>
 
       {/* Main Tab Views */}

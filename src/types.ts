@@ -1,4 +1,4 @@
-export type CategoryType = 'pageant' | 'award' | 'election' | 'talent' | 'ticket';
+export type CategoryType = 'pageant' | 'award' | 'election' | 'ticket';
 
 export interface Nominee {
   id: string;

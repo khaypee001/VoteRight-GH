@@ -9,26 +9,6 @@ export const CURRENCIES: CurrencyRate[] = [
 
 export const INITIAL_CONTESTS: Contest[] = [
   {
-    id: 'contest-show-talent',
-    title: 'Show Your Talent Season 1',
-    organizer: 'Afro Beats & Talent Gh',
-    category: 'talent',
-    bannerUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=1200',
-    description: 'Ghana’s biggest stage for unearthing raw vocalists, dancers, and creative performers across all 16 regions.',
-    startDate: '2026-07-01T00:00:00Z',
-    endDate: '2026-09-30T23:59:59Z',
-    isLive: true,
-    votePrice: 1.50, // GH₵ 1.50
-    totalVotes: 342100,
-    categories: ['🎤 Best Vocalist', '🔥 Best Dance Crew', '🌟 Fan Favorite Act'],
-    ticketsEnabled: true,
-    rules: [
-      'Each vote costs GH₵ 1.50.',
-      'Instant real-time leaderboard update upon MoMo confirmation.',
-      'Voting closes on September 30, 2026 at 23:59 GMT.'
-    ]
-  },
-  {
     id: 'contest-miss-good-news',
     title: 'Miss Good News 2026',
     organizer: 'Gospel Vision & Media Foundation',
@@ -106,52 +86,6 @@ export const INITIAL_CONTESTS: Contest[] = [
 ];
 
 export const INITIAL_NOMINEES: Nominee[] = [
-  // Show Your Talent Season 1
-  {
-    id: 'nom-syt-1',
-    code: 'VRG-101',
-    name: 'Kofi Melody',
-    category: '🎤 Best Vocalist',
-    contestId: 'contest-show-talent',
-    photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600',
-    bio: 'Afro-soul vocalist from Kumasi known for soulful high-life acoustic performances.',
-    votes: 94500,
-    rank: 1
-  },
-  {
-    id: 'nom-syt-2',
-    code: 'VRG-102',
-    name: 'Ama Harmony',
-    category: '🎤 Best Vocalist',
-    contestId: 'contest-show-talent',
-    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
-    bio: 'Gospel and R&B powerhouse singer from Accra.',
-    votes: 88200,
-    rank: 2
-  },
-  {
-    id: 'nom-syt-3',
-    code: 'VRG-103',
-    name: 'Vibe Squad Dance',
-    category: '🔥 Best Dance Crew',
-    contestId: 'contest-show-talent',
-    photoUrl: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&q=80&w=600',
-    bio: 'Energetic choreography dance crew from Takoradi.',
-    votes: 79400,
-    rank: 1
-  },
-  {
-    id: 'nom-syt-4',
-    code: 'VRG-104',
-    name: 'Prince Sax',
-    category: '🌟 Fan Favorite Act',
-    contestId: 'contest-show-talent',
-    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=600',
-    bio: 'Instrumental virtuoso bringing jazz fusion to Ghanaian traditional beats.',
-    votes: 80000,
-    rank: 1
-  },
-
   // Miss Good News 2026
   {
     id: 'nom-mgn-1',
@@ -309,11 +243,11 @@ export const INITIAL_RECENT_VOTES: RecentVoteFeed[] = [
   {
     id: 'rv-1',
     voterName: 'Kwame O.',
-    nomineeName: 'Kofi Melody',
-    nomineeCode: 'VRG-101',
+    nomineeName: 'Grace Serwaa',
+    nomineeCode: 'MGN-01',
     votesCount: 50,
     timeAgo: 'Just now',
-    contestTitle: 'Show Your Talent Season 1'
+    contestTitle: 'Miss Good News 2026'
   },
   {
     id: 'rv-2',

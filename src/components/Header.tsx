@@ -17,10 +17,11 @@ import {
   Lock,
   ChevronRight,
   Globe,
-  Home
+  Home,
+  Info
 } from 'lucide-react';
 
-export type ActiveTabType = 'home' | 'competitions' | 'results' | 'tickets' | 'nominations' | 'contact' | 'login';
+export type ActiveTabType = 'home' | 'competitions' | 'results' | 'nominations' | 'tickets' | 'contact' | 'about' | 'login';
 
 interface HeaderProps {
   activeTab: ActiveTabType;
@@ -50,10 +51,11 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems: { id: ActiveTabType; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home className="w-4 h-4" /> },
     { id: 'competitions', label: 'Competitions', icon: <Trophy className="w-4 h-4" /> },
-    { id: 'results', label: 'Results', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'tickets', label: 'Event Tickets', icon: <Ticket className="w-4 h-4" /> },
+    { id: 'results', label: 'Live Results', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'nominations', label: 'Nominations', icon: <FileText className="w-4 h-4" /> },
+    { id: 'tickets', label: 'Event Tickets', icon: <Ticket className="w-4 h-4" /> },
     { id: 'contact', label: 'Contact Us', icon: <Mail className="w-4 h-4" /> },
+    { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
   ];
 
   const handleNavClick = (tabId: ActiveTabType) => {

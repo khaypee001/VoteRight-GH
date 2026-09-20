@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Nominee, Contest, CurrencyCode } from '../types';
-import { formatPrice, getCandidateShareUrl, getCandidateSlug } from '../utils/helpers';
+import { formatPrice, getCandidateShareUrl, getCandidateSlug, copyToClipboard } from '../utils/helpers';
 import { Share2, Check, Trophy, Zap, Award, Sparkles } from 'lucide-react';
+import { ShareCandidateModal } from './ShareCandidateModal';
 
 interface NomineeCardProps {
   nominee: Nominee;
@@ -26,6 +27,7 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
   isHighlighted = false,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const percentage = totalCategoryVotes > 0 
     ? Math.round((nominee.votes / totalCategoryVotes) * 100) 
@@ -35,24 +37,12 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
     e.stopPropagation();
     const shareUrl = contest
       ? getCandidateShareUrl(contest, nominee)
-      : `${window.location.origin}/events/${nominee.contestId}/candidates/${getCandidateSlug(nominee)}`;
+      : getCandidateShareUrl({ id: nominee.contestId, title: 'VoteRight GH Awards' }, nominee);
     
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({
-          title: `Vote for ${nominee.name} - ${contest?.title || 'VoteRight GH'}`,
-          text: `Support and vote for ${nominee.name} (${nominee.code}) in ${contest?.title || 'VoteRight GH'}!`,
-          url: shareUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-      }
-    } catch (err) {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(shareUrl);
-      }
-    }
+    // Copy link immediately for convenience and open rich share options
+    await copyToClipboard(shareUrl);
     setCopied(true);
+    setShowShareModal(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
@@ -153,11 +143,6 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
           <h4 className="text-base font-extrabold text-white group-hover:text-amber-400 transition-colors mt-0.5 line-clamp-1">
             {nominee.name}
           </h4>
-          {nominee.bio && (
-            <p className="text-slate-400 text-xs mt-1 line-clamp-2 leading-relaxed">
-              {nominee.bio}
-            </p>
-          )}
         </div>
 
         {/* Vote Progress Bar */}
@@ -200,6 +185,14 @@ export const NomineeCard: React.FC<NomineeCardProps> = ({
           </button>
         )}
       </div>
+
+      {showShareModal && (
+        <ShareCandidateModal
+          nominee={nominee}
+          contest={contest}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </motion.div>
   );
 };

@@ -1913,7 +1913,6 @@ export default function AdminPage({
                       <option value="pageant">Beauty Pageant / Fashion</option>
                       <option value="awards">Awards Scheme / Excellence</option>
                       <option value="campus">Campus / University Election</option>
-                      <option value="talent">Talent / Reality Show</option>
                       <option value="corporate">Corporate / Executive Awards</option>
                     </select>
                   </div>

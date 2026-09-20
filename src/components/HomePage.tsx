@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Contest, CurrencyCode, SiteSettings } from '../types';
 import { formatPrice } from '../utils/helpers';
@@ -14,7 +14,10 @@ import {
   Globe,
   Lock,
   Layers,
-  Users
+  Users,
+  Search,
+  X,
+  Filter
 } from 'lucide-react';
 
 interface HomePageProps {
@@ -40,11 +43,29 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenOrganizerRegistration,
   onOpenQuickVoteModal,
 }) => {
-  const popularShows = contests.slice(0, 5);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  const filteredContests = useMemo(() => {
+    return contests.filter((c) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        c.title.toLowerCase().includes(q) ||
+        c.organizer.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        (c.categories && c.categories.some((cat) => cat.toLowerCase().includes(q)));
+
+      const matchesCat =
+        selectedCategory === 'all' || c.category === selectedCategory;
+
+      return matchesSearch && matchesCat;
+    });
+  }, [contests, searchQuery, selectedCategory]);
 
   return (
     <div className="space-y-12 bg-white text-slate-900 pb-16">
-      {/* 1. POPULAR AWARD SHOWS SECTION */}
+      {/* 1. ALL EVENTS AND COMPETITION SECTION */}
       <section className="space-y-6">
         <motion.div 
           initial={{ opacity: 0, x: -30 }}
@@ -56,10 +77,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
               <Trophy className="w-6 h-6 text-amber-500" />
-              Popular Award Shows
+              All Events And Competition
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Vote for your favorites in Ghana’s most prestigious award ceremonies. Support talent across music, film, business, and more.
+              Select an ongoing event and start voting for your favourite contestant(s)
             </p>
           </div>
 
@@ -68,74 +89,160 @@ export const HomePage: React.FC<HomePageProps> = ({
             onClick={onGoToCompetitions}
             className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer self-start sm:self-auto"
           >
-            <span>View All</span>
+            <span>View All ({contests.length})</span>
             <ArrowRight className="w-4 h-4" />
           </motion.button>
         </motion.div>
 
-        {/* Multi-Column Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {popularShows.map((contest, idx) => (
-            <motion.div
-              key={contest.id}
-              initial={{ opacity: 0, x: idx % 2 === 0 ? -40 : 40, y: 20 }}
-              whileInView={{ opacity: 1, x: 0, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.08 }}
-              whileHover={{ y: -6, scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-shadow duration-200 overflow-hidden flex flex-col justify-between group"
-            >
-              <div>
-                {/* Poster image banner */}
-                <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
-                  <img
-                    src={contest.bannerUrl}
-                    alt={contest.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute top-3 right-3 bg-amber-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-full shadow-md font-mono">
-                    Cost Per Vote: {formatPrice(contest.votePrice, currency)}
-                  </div>
-                  {contest.isLive && (
-                    <div className="absolute top-3 left-3 bg-emerald-600 text-white font-black text-[10px] px-2 py-0.5 rounded-full shadow flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                      LIVE VOTING
-                    </div>
-                  )}
-                </div>
+        {/* SEARCH ENGINE (Before Live Voting Cards) */}
+        <div className="space-y-3">
+          <div className="relative w-full">
+            <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for events or award shows (e.g. Miss Good News, High School Awards)..."
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm rounded-2xl pl-12 pr-10 py-3.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-                {/* Details */}
-                <div className="p-5 space-y-2">
-                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-full inline-block">
-                    {contest.category.toUpperCase()}
-                  </span>
-
-                  <h3 className="font-extrabold text-base text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                    {contest.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                    {contest.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="p-5 pt-0">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => onSelectContest(contest)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+          {/* Filter badges & counter */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-slate-400 font-bold flex items-center gap-1 shrink-0 mr-1">
+                <Filter className="w-3.5 h-3.5" /> Category:
+              </span>
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'award', label: '🏆 Awards' },
+                { id: 'pageant', label: '👑 Pageants' },
+                { id: 'election', label: '🎓 Student Elections' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    selectedCategory === cat.id
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
                 >
-                  <span>View Awards Page</span>
-                  <ArrowRight className="w-4 h-4" />
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                  {cat.label}
+                </button>
+              ))}
+
+              {(searchQuery || selectedCategory !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('all');
+                  }}
+                  className="text-blue-600 hover:text-blue-800 underline font-bold text-xs shrink-0 ml-1 cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              )}
+            </div>
+
+            <div className="text-[11px] font-semibold text-slate-500">
+              Showing <span className="font-bold text-slate-900">{filteredContests.length}</span> event{filteredContests.length === 1 ? '' : 's'}
+            </div>
+          </div>
         </div>
+
+        {/* Live Voting Cards Grid or Empty Search State */}
+        {filteredContests.length === 0 ? (
+          <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
+            <Search className="w-8 h-8 text-slate-400 mx-auto" />
+            <h3 className="text-sm font-bold text-slate-700">No events or award shows found</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              No events matched your search &ldquo;{searchQuery}&rdquo;. Try another search term or clear the search filter.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+              }}
+              className="mt-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              Clear Search & Show All Events
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredContests.map((contest, idx) => (
+              <motion.div
+                key={contest.id}
+                initial={{ opacity: 0, x: idx % 2 === 0 ? -40 : 40, y: 20 }}
+                whileInView={{ opacity: 1, x: 0, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.08 }}
+                whileHover={{ y: -6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-shadow duration-200 overflow-hidden flex flex-col justify-between group"
+              >
+                <div>
+                  {/* Poster image banner */}
+                  <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
+                    <img
+                      src={contest.bannerUrl}
+                      alt={contest.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute top-3 right-3 bg-amber-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-full shadow-md font-mono">
+                      Cost Per Vote: {formatPrice(contest.votePrice, currency)}
+                    </div>
+                    {contest.isLive && (
+                      <div className="absolute top-3 left-3 bg-emerald-600 text-white font-black text-[10px] px-2 py-0.5 rounded-full shadow flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        LIVE VOTING
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="p-5 space-y-2">
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-full inline-block">
+                      {contest.category.toUpperCase()}
+                    </span>
+
+                    <h3 className="font-extrabold text-base text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                      {contest.title}
+                    </h3>
+
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                      {contest.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="p-5 pt-0">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => onSelectContest(contest)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <span>View Awards Page</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 3. VOTING MADE EASY & REAL-TIME RESULTS SECTION */}

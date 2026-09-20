@@ -349,10 +349,12 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                       </div>
                     </div>
 
-                    {/* Nominee Label & Vote Count */}
-                    <div className="text-center space-y-1 w-full">
-                      <div className="font-extrabold text-xs text-white line-clamp-1">{nom.name}</div>
-                      <div className="text-[11px] font-bold text-blue-900 font-mono flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg transition-all duration-300 bg-blue-50 border border-blue-200">
+                    {/* Nominee Label & Vote Count beneath bar */}
+                    <div className="text-center space-y-1.5 w-full pt-1">
+                      <div className="font-extrabold text-sm text-white line-clamp-1 group-hover:text-amber-400 transition-colors">
+                        {nom.name}
+                      </div>
+                      <div className="text-[11px] font-bold text-amber-400 font-mono flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg transition-all duration-300 bg-slate-800 border border-slate-700">
                         <span className="relative flex h-3 w-3">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>

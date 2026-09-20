@@ -70,7 +70,6 @@ export const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
           { id: 'pageant', label: '👑 Pageants' },
           { id: 'award', label: '🏆 Excellence Awards' },
           { id: 'election', label: '🎓 Student Elections' },
-          { id: 'talent', label: '🎤 Talent Shows' },
         ].map((cat) => (
           <button
             key={cat.id}

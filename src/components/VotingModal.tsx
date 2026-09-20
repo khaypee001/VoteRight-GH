@@ -16,8 +16,10 @@ import {
   Lock,
   ExternalLink,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Share2
 } from 'lucide-react';
+import { ShareCandidateModal } from './ShareCandidateModal';
 
 interface VotingModalProps {
   nominee: Nominee;
@@ -52,6 +54,7 @@ export const VotingModal: React.FC<VotingModalProps> = ({
   } | null>(null);
 
   const [completedTransaction, setCompletedTransaction] = useState<VoteTransaction | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const totalVotesCount = customVotes && parseInt(customVotes) > 0 ? parseInt(customVotes) : selectedVotes;
   const priceInGHS = totalVotesCount * contest.votePrice;
@@ -297,6 +300,16 @@ export const VotingModal: React.FC<VotingModalProps> = ({
                 {contest.title}
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowShareModal(true)}
+              className="p-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-amber-400 border border-slate-800 rounded-xl transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 text-xs font-bold"
+              title="Share contestant direct voting link"
+            >
+              <Share2 className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">Share Link</span>
+            </button>
           </div>
 
           {/* STEP 1: Package Selection & Form */}
@@ -671,6 +684,16 @@ export const VotingModal: React.FC<VotingModalProps> = ({
                 </div>
               </div>
 
+              {/* Share Contestant to Rally More Votes */}
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share {nominee.name}'s Voting Link on WhatsApp</span>
+              </button>
+
               {/* Receipt Action Buttons */}
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -691,6 +714,15 @@ export const VotingModal: React.FC<VotingModalProps> = ({
           )}
         </div>
       </motion.div>
+
+      {/* Share Contestant Modal */}
+      {showShareModal && (
+        <ShareCandidateModal
+          nominee={nominee}
+          contest={contest}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </motion.div>
   );
 };

@@ -71,17 +71,62 @@ export function getCandidateSlug(nominee: { id?: string; name: string; code: str
   return nameSlug || codeSlug || nominee.id || 'candidate';
 }
 
+export function getPublicBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'https://ais-pre-pgjwbruinlnlqhiprnv3ca-137708270078.europe-west2.run.app';
+  }
+  const origin = window.location.origin;
+  // If running inside AI Studio private dev container, use the public shared app URL
+  if (origin && origin.includes('ais-dev-')) {
+    return origin.replace('ais-dev-', 'ais-pre-');
+  }
+  return origin || 'https://ais-pre-pgjwbruinlnlqhiprnv3ca-137708270078.europe-west2.run.app';
+}
+
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      // Fall through to fallback
+    }
+  }
+
+  // Robust fallback for iframes and restricted browser contexts
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error('Copy fallback failed:', err);
+    return false;
+  }
+}
+
 export function getEventShareUrl(contest: { id: string; title: string; slug?: string }): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/events/${getEventSlug(contest)}`;
+  const base = getPublicBaseUrl();
+  const eventSlug = getEventSlug(contest);
+  return `${base}/events/${eventSlug}?contest=${encodeURIComponent(contest.id)}`;
 }
 
 export function getCandidateShareUrl(
   contest: { id: string; title: string; slug?: string },
   nominee: { id: string; name: string; code: string; slug?: string }
 ): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/events/${getEventSlug(contest)}/candidates/${getCandidateSlug(nominee)}`;
+  const base = getPublicBaseUrl();
+  const eventSlug = getEventSlug(contest);
+  const candSlug = getCandidateSlug(nominee);
+  return `${base}/events/${eventSlug}/candidates/${candSlug}?contest=${encodeURIComponent(contest.id)}&candidate=${encodeURIComponent(nominee.code)}`;
 }
 
 /**

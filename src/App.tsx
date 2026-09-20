@@ -33,6 +33,7 @@ import { ResultsPage } from './components/ResultsPage';
 import { TicketsPage } from './components/TicketsPage';
 import { NominationsPage } from './components/NominationsPage';
 import { ContactPage } from './components/ContactPage';
+import { AboutPage } from './components/AboutPage';
 import { LoginPage } from './components/LoginPage';
 import { OrganizerLoginPage } from './components/OrganizerLoginPage';
 import { ContestDetail } from './components/ContestDetail';
@@ -56,12 +57,32 @@ export default function App() {
   // Persistence State
   const [contests, setContests] = useState<Contest[]>(() => {
     const saved = localStorage.getItem('voterightgh_contests');
-    return saved ? JSON.parse(saved) : INITIAL_CONTESTS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c: any) => c.category !== 'talent' && c.id !== 'contest-show-talent');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_CONTESTS;
   });
 
   const [nominees, setNominees] = useState<Nominee[]>(() => {
     const saved = localStorage.getItem('voterightgh_nominees');
-    return saved ? JSON.parse(saved) : INITIAL_NOMINEES;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((n: any) => n.contestId !== 'contest-show-talent');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_NOMINEES;
   });
 
   const [ticketEvents, setTicketEvents] = useState<TicketEvent[]>(() => {
@@ -394,14 +415,19 @@ export default function App() {
 
       // Priority 1: Direct Candidate Shared Link
       if (candidateSlug) {
-        const cleanCand = candidateSlug.toLowerCase().trim();
+        let cleanCand = '';
+        try {
+          cleanCand = decodeURIComponent(candidateSlug).toLowerCase().trim();
+        } catch {
+          cleanCand = candidateSlug.toLowerCase().trim();
+        }
         const candOnlyAlnum = cleanCand.replace(/[^a-z0-9]/g, '');
 
         let matchedNominee = nominees.find((n) => {
           const nCode = n.code.toLowerCase().trim();
           const nId = n.id.toLowerCase().trim();
           const nSlug = getCandidateSlug(n).toLowerCase().trim();
-          const nNameSlug = slugify(n.name);
+          const nNameSlug = slugify(n.name).toLowerCase().trim();
           const nCodeAlnum = nCode.replace(/[^a-z0-9]/g, '');
 
           return (
@@ -411,8 +437,9 @@ export default function App() {
             nNameSlug === cleanCand ||
             cleanCand.endsWith(`-${nCode}`) ||
             cleanCand.endsWith(nCode) ||
-            (candOnlyAlnum.length >= 3 && candOnlyAlnum.endsWith(nCodeAlnum)) ||
-            (candOnlyAlnum.length >= 3 && candOnlyAlnum === nCodeAlnum)
+            cleanCand.includes(nCode) ||
+            (candOnlyAlnum.length >= 2 && candOnlyAlnum.endsWith(nCodeAlnum)) ||
+            (candOnlyAlnum.length >= 2 && candOnlyAlnum === nCodeAlnum)
           );
         });
 
@@ -430,10 +457,15 @@ export default function App() {
 
       // Priority 2: Event Slug Link
       if (eventSlug) {
-        const cleanEvent = eventSlug.toLowerCase().trim();
+        let cleanEvent = '';
+        try {
+          cleanEvent = decodeURIComponent(eventSlug).toLowerCase().trim();
+        } catch {
+          cleanEvent = eventSlug.toLowerCase().trim();
+        }
         const matchedContest = contests.find((c) => {
           const cSlug = getEventSlug(c).toLowerCase();
-          const titleSlug = slugify(c.title);
+          const titleSlug = slugify(c.title).toLowerCase();
           const cId = c.id.toLowerCase();
           return (
             cId === cleanEvent ||
@@ -706,6 +738,14 @@ export default function App() {
 
                 {activeTab === 'contact' && <ContactPage siteSettings={siteSettings} />}
 
+                {activeTab === 'about' && (
+                  <AboutPage
+                    siteSettings={siteSettings}
+                    onGoToCompetitions={() => setActiveTab('competitions')}
+                    onGoToContact={() => setActiveTab('contact')}
+                  />
+                )}
+
                 {activeTab === 'login' && (
                   window.location.pathname.toLowerCase().startsWith('/organizer') ? (
                     <OrganizerLoginPage
@@ -915,6 +955,13 @@ export default function App() {
           currency={currency}
           onClose={() => {
             setVotingModalData(null);
+            if (selectedContest && highlightedCandidateCode) {
+              const activeNom = nominees.find((n) => n.code.toUpperCase() === highlightedCandidateCode.toUpperCase());
+              if (activeNom) {
+                window.history.pushState({}, '', getCandidateShareUrl(selectedContest, activeNom));
+                return;
+              }
+            }
             if (selectedContest) {
               window.history.pushState({}, '', getEventShareUrl(selectedContest));
             } else {
