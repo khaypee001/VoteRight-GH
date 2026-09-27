@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Building2, 
@@ -36,12 +36,24 @@ export const PortalsHubModal: React.FC<PortalsHubModalProps> = ({
 }) => {
   const [selectedRole, setSelectedRole] = useState<'admin' | 'organizer' | 'voter' | 'register'>('organizer');
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative text-white my-8">
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]">
         
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 p-6 border-b border-slate-800 flex items-center justify-between">
+        {/* Header - Sticky with prominent close button */}
+        <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center border border-amber-400/30">
               <Sparkles className="w-5 h-5" />
@@ -59,16 +71,17 @@ export const PortalsHubModal: React.FC<PortalsHubModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800/90 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
             aria-label="Close portals hub modal"
-            title="Close"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Close</span>
           </button>
         </div>
 
         {/* Role Selector Grid */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 overscroll-contain">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* 1. Super Admin Portal */}
@@ -189,6 +202,18 @@ export const PortalsHubModal: React.FC<PortalsHubModalProps> = ({
             >
               <span>Launch Portal</span>
               <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Bottom Close Button */}
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-semibold rounded-xl border border-slate-800 hover:bg-slate-800 transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              <span>Cancel & Close</span>
             </button>
           </div>
         </div>

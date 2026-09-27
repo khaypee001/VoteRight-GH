@@ -28,6 +28,15 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
   const [momoNumber, setMomoNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleNextToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!gmailEmail.toLowerCase().includes('@')) {
@@ -60,31 +69,40 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative border border-slate-200">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-          aria-label="Close registration popup"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+    >
+      <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full shadow-2xl relative border border-slate-200 my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 shrink-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <span className="text-xs font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-3 py-1 rounded-full inline-block">
+            Organizer Onboarding
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+            aria-label="Close registration popup"
+            title="Close (Esc)"
+          >
+            <X className="w-4 h-4" />
+            <span>Close</span>
+          </button>
+        </div>
 
-        {step === 'details' && (
-          <>
-            <div className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-3 py-1 rounded-full inline-block">
-                Organizer Onboarding
-              </span>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Register as an Event Organizer
-              </h2>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Host your awards show, pageant, or SRC elections on VoteRight GH. Onboard your event with full instant mobile money voting and ticketing.
-              </p>
-            </div>
+        {/* Scrollable Modal Body */}
+        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 overscroll-contain">
+          {step === 'details' && (
+            <>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                  Register as an Event Organizer
+                </h2>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Host your awards show, pageant, or SRC elections on VoteRight GH. Onboard your event with full instant mobile money voting and ticketing.
+                </p>
+              </div>
 
             {/* Flat Fee Banner */}
             <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl flex items-center justify-between shadow-sm">
@@ -161,13 +179,24 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Proceed to Pay GHS 100 Setup Fee</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Proceed to Pay GHS 100 Setup Fee</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-2.5 text-xs text-slate-500 hover:text-slate-800 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel & Close</span>
+                </button>
+              </div>
             </form>
           </>
         )}
@@ -249,20 +278,31 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
                 </p>
               </div>
 
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isProcessing ? (
-                  <span>Processing MoMo Prompt...</span>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Pay GHS 100.00 & Submit Application</span>
-                  </>
-                )}
-              </button>
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isProcessing ? (
+                    <span>Processing MoMo Prompt...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Pay GHS 100.00 & Submit Application</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-2.5 text-xs text-slate-500 hover:text-slate-800 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel & Close</span>
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -302,6 +342,7 @@ export const OrganizerRegistrationModal: React.FC<OrganizerRegistrationModalProp
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

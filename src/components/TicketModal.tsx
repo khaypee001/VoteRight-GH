@@ -38,6 +38,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
 
   const totalPriceGHS = selectedTier.price * quantity;
 
+  // Close modal on Escape key press
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handlePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!buyerPhone) {
@@ -138,10 +147,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm transition-opacity duration-300 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-white my-8 transition-all duration-300 ease-out scale-100 opacity-100">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-5 border-b border-slate-800 flex items-center justify-between">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md transition-opacity duration-300 overflow-y-auto"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] transition-all duration-300 ease-out scale-100 opacity-100">
+        {/* Header - Sticky with prominent close button */}
+        <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-r from-blue-900/95 via-indigo-900/95 to-slate-900/95 backdrop-blur-md p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-blue-400/20 flex items-center justify-center border border-blue-400/30">
               <Ticket className="w-4 h-4 text-blue-400" />
@@ -155,15 +169,16 @@ export const TicketModal: React.FC<TicketModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800/80 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800/90 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
             aria-label="Close ticket purchase modal"
-            title="Close"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Close</span>
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 overscroll-contain">
           {step === 'selection' ? (
             <form onSubmit={handlePurchase} className="space-y-5">
               {/* Ticket Tier Options */}
@@ -274,12 +289,23 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-blue-600/20 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Pay {formatPrice(totalPriceGHS, currency)} via Paystack</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-blue-600/20 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Pay {formatPrice(totalPriceGHS, currency)} via Paystack</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-semibold rounded-xl border border-slate-800 hover:bg-slate-800/60 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel & Close</span>
+                </button>
+              </div>
             </form>
           ) : null}
 

@@ -769,6 +769,52 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     a.organizer.toLowerCase().includes(awardSearch.toLowerCase())
   );
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isCreatingContest || editingContest) {
+          setIsCreatingContest(false);
+          setEditingContest(null);
+        } else if (isCreatingNominee || editingNominee) {
+          setIsCreatingNominee(false);
+          setEditingNominee(null);
+        } else if (isCreatingEvent || editingEvent) {
+          setIsCreatingEvent(false);
+          setEditingEvent(null);
+        } else if (isCreatingAward || editingAward) {
+          setIsCreatingAward(false);
+          setEditingAward(null);
+        } else if (isCreatingOrganizer || editingOrganizer) {
+          setIsCreatingOrganizer(false);
+          setEditingOrganizer(null);
+        } else if (isCreatingManualTx) {
+          setIsCreatingManualTx(false);
+        } else if (voteAdjustNominee) {
+          setVoteAdjustNominee(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isCreatingContest,
+    editingContest,
+    isCreatingNominee,
+    editingNominee,
+    isCreatingEvent,
+    editingEvent,
+    isCreatingAward,
+    editingAward,
+    isCreatingOrganizer,
+    editingOrganizer,
+    isCreatingManualTx,
+    voteAdjustNominee,
+    onClose,
+  ]);
+
   const handleAdminLogout = () => {
     localStorage.removeItem('voteright_admin_session');
     localStorage.removeItem('isAdminAuthenticated');
@@ -2379,21 +2425,37 @@ CREATE TABLE IF NOT EXISTS public.nominees (
 
       {/* MODAL: CREATE / EDIT CONTEST */}
       {(isCreatingContest || editingContest) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 my-8 text-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreatingContest(false);
+              setEditingContest(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl my-auto text-white shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-amber-400" />
-                <h3 className="font-extrabold text-lg text-white">
+                <h3 className="font-extrabold text-base sm:text-lg text-white">
                   {editingContest ? `Edit Event: ${editingContest.title}` : 'Create New Event / Contest'}
                 </h3>
               </div>
-              <button onClick={() => { setIsCreatingContest(false); setEditingContest(null); }} className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800">
-                <X className="w-5 h-5" />
+              <button 
+                type="button"
+                onClick={() => { setIsCreatingContest(false); setEditingContest(null); }} 
+                className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                aria-label="Close contest form"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveContest} className="space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+              <form onSubmit={handleSaveContest} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Event Title</label>
@@ -2581,24 +2643,41 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: CREATE / EDIT NOMINEE */}
       {(isCreatingNominee || editingNominee) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-extrabold text-lg text-white">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreatingNominee(false);
+              setEditingNominee(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto text-white shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-extrabold text-base sm:text-lg text-white">
                 {editingNominee ? 'Edit Candidate Info' : 'Add New Candidate'}
               </h3>
-              <button onClick={() => { setIsCreatingNominee(false); setEditingNominee(null); }} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <button 
+                type="button"
+                onClick={() => { setIsCreatingNominee(false); setEditingNominee(null); }} 
+                className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                aria-label="Close candidate modal"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveNominee} className="space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+              <form onSubmit={handleSaveNominee} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Candidate Full Name</label>
@@ -2726,24 +2805,41 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: CREATE / EDIT EVENT TICKET */}
       {(isCreatingEvent || editingEvent) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-extrabold text-lg text-white">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreatingEvent(false);
+              setEditingEvent(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto text-white shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-extrabold text-base sm:text-lg text-white">
                 {editingEvent ? 'Edit Event Ticket Listing' : 'Add New Event E-Ticket'}
               </h3>
-              <button onClick={() => { setIsCreatingEvent(false); setEditingEvent(null); }} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <button 
+                type="button"
+                onClick={() => { setIsCreatingEvent(false); setEditingEvent(null); }} 
+                className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                aria-label="Close ticket form"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveEvent} className="space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+              <form onSubmit={handleSaveEvent} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Event Title</label>
                 <input
@@ -2856,24 +2952,41 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: CREATE / EDIT AWARD SCHEME */}
       {(isCreatingAward || editingAward) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-extrabold text-lg text-white">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreatingAward(false);
+              setEditingAward(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto text-white shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-extrabold text-base sm:text-lg text-white">
                 {editingAward ? 'Edit Award Scheme' : 'Add Award Scheme for Nominations'}
               </h3>
-              <button onClick={() => { setIsCreatingAward(false); setEditingAward(null); }} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <button 
+                type="button"
+                onClick={() => { setIsCreatingAward(false); setEditingAward(null); }} 
+                className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                aria-label="Close award modal"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveAward} className="space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+              <form onSubmit={handleSaveAward} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Award Scheme Title</label>
                 <input
@@ -2975,24 +3088,41 @@ CREATE TABLE IF NOT EXISTS public.nominees (
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: CREATE / EDIT ORGANIZER */}
       {(isCreatingOrganizer || editingOrganizer) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 my-8 text-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-extrabold text-lg text-white">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsCreatingOrganizer(false);
+              setEditingOrganizer(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto text-white shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-extrabold text-base sm:text-lg text-white">
                 {editingOrganizer ? 'Edit Organizer Account' : 'Register Organizer Account'}
               </h3>
-              <button onClick={() => { setIsCreatingOrganizer(false); setEditingOrganizer(null); }} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <button 
+                type="button"
+                onClick={() => { setIsCreatingOrganizer(false); setEditingOrganizer(null); }} 
+                className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+                aria-label="Close organizer modal"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveOrganizer} className="space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+              <form onSubmit={handleSaveOrganizer} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Organizer / Brand Name</label>
                 <input
@@ -3090,7 +3220,12 @@ CREATE TABLE IF NOT EXISTS public.nominees (
 
       {/* MODAL: MANUAL VOTE ENTRY */}
       {isCreatingManualTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreatingManualTx(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+        >
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 my-8 text-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-extrabold text-base text-white">Record Offline / Manual Vote Payment</h3>
@@ -3183,7 +3318,12 @@ CREATE TABLE IF NOT EXISTS public.nominees (
 
       {/* MODAL: VOTE ADJUSTMENT OVERRIDE */}
       {voteAdjustNominee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setVoteAdjustNominee(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        >
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-5 text-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-extrabold text-base text-white">

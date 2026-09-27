@@ -20,6 +20,15 @@ export const QuickVoteModal: React.FC<QuickVoteModalProps> = ({
   const [code, setCode] = useState(initialCode);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = code.trim().toUpperCase();
@@ -48,9 +57,14 @@ export const QuickVoteModal: React.FC<QuickVoteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white my-8">
-        <div className="bg-gradient-to-r from-amber-500/20 via-slate-900 to-slate-900 p-5 border-b border-slate-800 flex items-center justify-between">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]">
+        <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-400/20 flex items-center justify-center border border-amber-400/30">
               <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -64,15 +78,16 @@ export const QuickVoteModal: React.FC<QuickVoteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800/90 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
             aria-label="Close direct vote modal"
-            title="Close"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Close</span>
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
           <form onSubmit={handleSearch} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
@@ -131,6 +146,18 @@ export const QuickVoteModal: React.FC<QuickVoteModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Bottom Cancel & Close Button */}
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-semibold rounded-xl border border-slate-800 hover:bg-slate-800/60 transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              <span>Cancel & Close</span>
+            </button>
           </div>
         </div>
       </div>

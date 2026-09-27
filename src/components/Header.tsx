@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
 import { CurrencyCode, UserSession } from '../types';
 import {
@@ -47,6 +47,17 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenQuickVoteModal,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && drawerOpen) {
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [drawerOpen]);
 
   const navItems: { id: ActiveTabType; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home className="w-4 h-4" /> },
@@ -177,7 +188,12 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* SLIDING DRAWER MENU */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDrawerOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
+        >
           <div className="w-full max-w-sm bg-white text-slate-900 h-full flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
             <div className="bg-blue-600 text-white p-5 flex items-center justify-between border-b border-blue-500">

@@ -1027,6 +1027,15 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  // Close portal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Account Blocked Guard
   if (profile.isBlocked) {
     return (
@@ -1064,6 +1073,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto"
     >
       <motion.div 
@@ -1148,11 +1160,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer shrink-0 ml-auto md:ml-2"
-              title="Close Portal"
+              className="px-3 py-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer shrink-0 ml-auto md:ml-2 flex items-center gap-1.5 text-xs font-bold shadow-xs"
+              title="Close Portal (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
+              <span>Close</span>
             </button>
           </div>
         </div>
@@ -3012,7 +3026,15 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
 
                 {/* Live Transfer Execution Modal */}
                 {isTransferModalOpen && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                  <div 
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) {
+                        setIsTransferModalOpen(false);
+                        setCompletedPayoutRecord(null);
+                      }
+                    }}
+                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                  >
                     <motion.div 
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -3309,6 +3331,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setSelectedNomineeForBadge(null);
+            }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
           >
             <motion.div 
@@ -3378,6 +3403,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowPosterModal(false);
+            }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
           >
             <motion.div 
@@ -3431,6 +3459,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowBulkUploadModal(false);
+            }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
           >
             <motion.div
@@ -3497,28 +3528,36 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditingNominee(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-white"
+              className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden"
             >
-              <button
-                type="button"
-                onClick={() => setEditingNominee(null)}
-                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-2 text-blue-400 font-extrabold text-base">
-                <Edit2 className="w-5 h-5" />
-                <span>Edit Nominee Details</span>
+              <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-400 font-extrabold text-base">
+                  <Edit2 className="w-5 h-5" />
+                  <span>Edit Nominee Details</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingNominee(null)}
+                  className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                  aria-label="Close edit nominee modal"
+                  title="Close (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
+                </button>
               </div>
 
-              <form onSubmit={handleSaveEditNominee} className="space-y-3">
+              <div className="p-6 overflow-y-auto flex-1 overscroll-contain">
+                <form onSubmit={handleSaveEditNominee} className="space-y-3">
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1">Full / Stage Name</label>
                   <input
@@ -3604,6 +3643,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </button>
                 </div>
               </form>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -3616,15 +3656,18 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditingContestModal(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 my-8 text-white shadow-2xl relative"
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] text-white shadow-2xl relative overflow-hidden"
             >
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Edit3 className="w-5 h-5 text-amber-400" />
                   <h3 className="font-extrabold text-base text-white">
@@ -3632,14 +3675,19 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </h3>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setEditingContestModal(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-all cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                  aria-label="Close edit event modal"
+                  title="Close (Esc)"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
                 </button>
               </div>
 
-              <form onSubmit={handleSaveModalContest} className="space-y-4 text-xs">
+              <div className="p-6 overflow-y-auto flex-1 overscroll-contain">
+                <form onSubmit={handleSaveModalContest} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-slate-300 mb-1">Event Title</label>
@@ -3835,6 +3883,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   </button>
                 </div>
               </form>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -3845,33 +3894,41 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setManagingTicketsContest(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-6 my-8 text-white shadow-2xl"
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] text-white shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md px-6 py-4 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl">
-                    <Ticket className="w-6 h-6" />
+                  <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
+                    <Ticket className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-lg text-white">Manage Event Tickets</h3>
+                    <h3 className="font-extrabold text-base sm:text-lg text-white">Manage Event Tickets</h3>
                     <p className="text-xs text-slate-400 line-clamp-1">{managingTicketsContest.title}</p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setManagingTicketsContest(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                  aria-label="Close manage tickets modal"
+                  title="Close (Esc)"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
                 </button>
               </div>
 
-              {/* Status & Ticketing Switch */}
+              <div className="p-6 space-y-6 overflow-y-auto flex-1 overscroll-contain">
+                {/* Status & Ticketing Switch */}
               <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="text-xs font-extrabold text-white">Ticketing Status for Public Site</div>
@@ -4086,6 +4143,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Save Ticket Configuration</span>
                 </button>
+              </div>
               </div>
             </motion.div>
           </motion.div>

@@ -64,6 +64,21 @@ export const TicketsPage: React.FC<TicketsPageProps> = ({
   const [viewingPass, setViewingPass] = useState<TicketPurchase | null>(null);
   const [copiedPassCode, setCopiedPassCode] = useState<string | null>(null);
 
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (viewingPass) {
+          setViewingPass(null);
+        } else if (selectedEvent) {
+          setSelectedEvent(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewingPass, selectedEvent]);
+
   // Categories extraction
   const categories = ['All', ...Array.from(new Set(events.map((e) => e.category)))];
 
@@ -549,10 +564,15 @@ export const TicketsPage: React.FC<TicketsPageProps> = ({
 
       {/* CHECKOUT & PAYMENT MODAL */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 my-8 text-slate-900 animate-in fade-in zoom-in-95 duration-200">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedEvent(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] text-slate-900 animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="sticky top-0 z-20 shrink-0 p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/95 backdrop-blur-sm">
               <div>
                 <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
                   Ticket Purchase
@@ -562,15 +582,21 @@ export const TicketsPage: React.FC<TicketsPageProps> = ({
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedEvent(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-200/80 hover:bg-rose-100 hover:text-rose-700 border border-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                aria-label="Close ticket purchase modal"
+                title="Close (Esc)"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            {/* FORM STEP */}
-            {checkoutStep === 'form' && (
+            {/* Scrollable Content Container */}
+            <div className="overflow-y-auto flex-1 overscroll-contain">
+              {/* FORM STEP */}
+              {checkoutStep === 'form' && (
               <form onSubmit={handleStartPayment} className="p-6 space-y-5">
                 {/* Tier Selection */}
                 <div className="space-y-2">
@@ -965,25 +991,35 @@ export const TicketsPage: React.FC<TicketsPageProps> = ({
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
 
       {/* FULL PASS VIEW MODAL */}
       {viewingPass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 my-8 text-slate-900 animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewingPass(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] text-slate-900 animate-in fade-in zoom-in-95 duration-200">
+            <div className="sticky top-0 z-20 shrink-0 p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/95 backdrop-blur-sm">
               <span className="text-xs font-bold text-slate-700">Official E-Ticket Pass</span>
               <button
+                type="button"
                 onClick={() => setViewingPass(null)}
-                className="p-1 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer"
+                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-200/80 hover:bg-rose-100 hover:text-rose-700 border border-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                aria-label="Close pass view"
+                title="Close (Esc)"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
+                <span>Close</span>
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 overscroll-contain">
               {/* Ticket Visual */}
               <div className="bg-slate-950 text-white rounded-2xl p-6 border border-slate-800 text-center relative overflow-hidden shadow-md">
                 {/* Perforation Cutouts */}

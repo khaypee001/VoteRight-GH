@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VoteTransaction, CurrencyCode } from '../types';
 import { formatPrice, generateQrUrl } from '../utils/helpers';
 import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, Lock, QrCode, X } from 'lucide-react';
@@ -18,6 +18,15 @@ export const AuditVerification: React.FC<AuditVerificationProps> = ({
   const [searchedTx, setSearchedTx] = useState<VoteTransaction | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchRef.trim()) return;
@@ -31,10 +40,13 @@ export const AuditVerification: React.FC<AuditVerificationProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative text-white my-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-5 border-b border-slate-800 flex items-center justify-between">
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]">
+        {/* Header - Sticky with prominent close button */}
+        <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -48,16 +60,17 @@ export const AuditVerification: React.FC<AuditVerificationProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800/90 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
             aria-label="Close audit verification"
-            title="Close"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Close</span>
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 overscroll-contain">
           <p className="text-xs text-slate-300 leading-relaxed">
             Every vote on VoteRightGh generates an immutable audit hash and reference receipt. Enter your transaction reference code below to verify that your vote was successfully logged and credited to your candidate.
           </p>
@@ -170,6 +183,18 @@ export const AuditVerification: React.FC<AuditVerificationProps> = ({
             <p className="text-[11px] leading-relaxed">
               Organizers receive real-time automated audit exports with complete reference listings, ensuring 100% fair elections and transparent award results.
             </p>
+          </div>
+
+          {/* Bottom Close Button */}
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-semibold rounded-xl border border-slate-800 hover:bg-slate-800 transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              <span>Done / Close Portal</span>
+            </button>
           </div>
         </div>
       </div>

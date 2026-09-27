@@ -67,6 +67,17 @@ export const VotingModal: React.FC<VotingModalProps> = ({
     { count: 500, label: '500 Votes', tag: '⚡ Mega Booster' },
   ];
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Load Paystack Inline JS script dynamically
   useEffect(() => {
     if (!document.getElementById('paystack-js-script')) {
@@ -239,21 +250,24 @@ export const VotingModal: React.FC<VotingModalProps> = ({
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
     >
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-white my-8"
+        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]"
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 p-5 border-b border-slate-800 flex items-center justify-between">
+        {/* Header - Sticky with prominent close button */}
+        <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-400/20 flex items-center justify-center border border-amber-400/30">
               <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -267,16 +281,17 @@ export const VotingModal: React.FC<VotingModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-slate-300 hover:text-white bg-slate-800/90 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
             aria-label="Close voting modal"
-            title="Close"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Close</span>
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 overscroll-contain">
           {/* Nominee Summary */}
           <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
             <img
@@ -475,13 +490,24 @@ export const VotingModal: React.FC<VotingModalProps> = ({
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-amber-400/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Pay {formatPrice(priceInGHS, currency)} via Paystack</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm py-3.5 px-6 rounded-2xl transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 shadow-xl shadow-amber-400/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Pay {formatPrice(priceInGHS, currency)} via Paystack</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-semibold rounded-xl border border-slate-800 hover:bg-slate-800/60 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel & Close</span>
+                </button>
+              </div>
             </form>
           )}
 
@@ -493,6 +519,13 @@ export const VotingModal: React.FC<VotingModalProps> = ({
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
                 Setting up secure payment authorization for {totalVotesCount} votes for {nominee.name}.
               </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-4 px-4 py-2 text-xs text-slate-400 hover:text-white font-bold border border-slate-800 rounded-xl hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancel & Close
+              </button>
             </div>
           )}
 
@@ -553,12 +586,20 @@ export const VotingModal: React.FC<VotingModalProps> = ({
                   </a>
                 )}
 
-                <button
-                  onClick={() => setStep('selection')}
-                  className="text-xs text-slate-400 hover:text-white pt-1 block mx-auto cursor-pointer"
-                >
-                  Cancel and change payment options
-                </button>
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => setStep('selection')}
+                    className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Change options
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="text-xs text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
+                  >
+                    Cancel & Close
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -593,14 +634,20 @@ export const VotingModal: React.FC<VotingModalProps> = ({
                   onClick={() => setStep('selection')}
                   className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
                 >
-                  Back to Packages
+                  Back
                 </button>
                 <button
                   onClick={() => verifyPaystackPayment()}
                   className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Retry Verification</span>
+                  <span>Retry</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>

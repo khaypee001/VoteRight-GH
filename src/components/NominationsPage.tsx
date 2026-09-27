@@ -27,6 +27,17 @@ export const NominationsPage: React.FC<NominationsPageProps> = ({ awards, onAddN
   const [photoUrl, setPhotoUrl] = useState('');
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
 
+  // Close modal on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedAward) {
+        setSelectedAward(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedAward]);
+
   const filteredAwards = awards.filter((a) =>
     a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     a.organizer.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,37 +174,55 @@ export const NominationsPage: React.FC<NominationsPageProps> = ({ awards, onAddN
 
       {/* NOMINATION FORM MODAL */}
       {selectedAward && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm transition-opacity duration-300 overflow-y-auto">
-          <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative border border-slate-200 transition-all duration-300 ease-out scale-100 opacity-100">
-            <button
-              type="button"
-              onClick={() => setSelectedAward(null)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label="Close form"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {submittedSuccess ? (
-              <div className="text-center py-8 space-y-3">
-                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900">Nomination Received!</h3>
-                <p className="text-xs text-slate-500">
-                  Thank you for submitting your nomination for {selectedAward.title}. The electoral board will review your submission shortly.
-                </p>
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedAward(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md transition-opacity duration-300 overflow-y-auto"
+        >
+          <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full shadow-2xl relative border border-slate-200 transition-all duration-300 ease-out scale-100 opacity-100 my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-20 shrink-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
+                  Submit Nomination
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 truncate max-w-[260px] sm:max-w-xs">
+                  {selectedAward.title}
+                </h3>
               </div>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                    Submit Nomination
-                  </span>
-                  <h3 className="text-2xl font-black text-slate-900">{selectedAward.title}</h3>
-                </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAward(null)}
+                className="px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs shrink-0"
+                aria-label="Close nomination form"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
+              </button>
+            </div>
 
+            {/* Scrollable Body */}
+            <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 overscroll-contain">
+              {submittedSuccess ? (
+                <div className="text-center py-8 space-y-4">
+                  <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900">Nomination Received!</h3>
+                  <p className="text-xs text-slate-500">
+                    Thank you for submitting your nomination for {selectedAward.title}. The electoral board will review your submission shortly.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAward(null)}
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer"
+                  >
+                    Done / Close
+                  </button>
+                </div>
+              ) : (
                 <form onSubmit={handleSubmitNomination} className="space-y-4">
                   <div>
                     <label className="text-xs font-extrabold text-slate-700">Select Category</label>
@@ -251,16 +280,27 @@ export const NominationsPage: React.FC<NominationsPageProps> = ({ awards, onAddN
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>Submit Nomination Form</span>
-                  </button>
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all duration-150 ease-in-out active:scale-95 hover:scale-105 hover:shadow-lg hover:brightness-110 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Submit Nomination Form</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAward(null)}
+                      className="w-full py-2.5 text-xs text-slate-500 hover:text-slate-800 font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Cancel & Close</span>
+                    </button>
+                  </div>
                 </form>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}

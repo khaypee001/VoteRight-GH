@@ -93,17 +93,17 @@ export const ShareCandidateModal: React.FC<ShareCandidateModalProps> = ({
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto"
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 15 }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white my-8"
+          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white my-auto flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]"
         >
           {/* Sticky Header with prominent close button */}
-          <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="sticky top-0 z-20 shrink-0 bg-slate-900/95 backdrop-blur-md p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-amber-400/20 flex items-center justify-center border border-amber-400/30">
                 <Share2 className="w-4 h-4 text-amber-400" />
@@ -128,7 +128,7 @@ export const ShareCandidateModal: React.FC<ShareCandidateModalProps> = ({
             </button>
           </div>
 
-          <div className="p-5 sm:p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 overscroll-contain">
             {/* Candidate Summary Card */}
             <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-center gap-3.5">
               <img
